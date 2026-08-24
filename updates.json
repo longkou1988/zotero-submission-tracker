@@ -1,0 +1,18 @@
+{
+  "addons": {
+    "submission-tracker@research-tools": {
+      "updates": [
+        {
+          "version": "0.1.2",
+          "update_link": "https://github.com/longkou1988/zotero-submission-tracker/releases/download/v0.1.2/submission-tracker-0.1.2.xpi",
+          "applications": {
+            "zotero": {
+              "strict_min_version": "8.0",
+              "strict_max_version": "10.*"
+            }
+          }
+        }
+      ]
+    }
+  }
+}

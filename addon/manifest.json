@@ -1,0 +1,15 @@
+{
+  "manifest_version": 2,
+  "name": "Submission Tracker",
+  "version": "0.1.2",
+  "description": "Track journal submissions locally in Zotero",
+  "author": "Research Tools",
+  "applications": {
+    "zotero": {
+      "id": "submission-tracker@research-tools",
+      "update_url": "https://raw.githubusercontent.com/longkou1988/zotero-submission-tracker/main/updates.json",
+      "strict_min_version": "8.0",
+      "strict_max_version": "10.*"
+    }
+  }
+}
