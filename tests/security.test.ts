@@ -28,4 +28,10 @@ describe("security boundaries", () => {
       expect(fluent).toMatch(/^submission-tracker-create\s*=\s*\n\s+\.label\s*=\s*\S/m);
     }
   });
+
+  it("relies on Zotero's automatic localization loading before menu registration", () => {
+    const startup = read("src/main.ts");
+    expect(startup).not.toContain("registerPluginLocalization");
+    expect(startup.match(/Zotero\.MenuManager\.registerMenu/g)).toHaveLength(2);
+  });
 });

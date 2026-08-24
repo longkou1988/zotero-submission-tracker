@@ -1,6 +1,6 @@
 {
   "name": "zotero-submission-tracker",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "private": true,
   "type": "module",
   "description": "Local-only submission tracking for Zotero 8, 9, and 10",

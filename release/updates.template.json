@@ -3,8 +3,8 @@
     "submission-tracker@research-tools": {
       "updates": [
         {
-          "version": "0.1.3",
-          "update_link": "https://github.com/longkou1988/zotero-submission-tracker/releases/download/v0.1.3/submission-tracker-0.1.3.xpi",
+          "version": "0.1.4",
+          "update_link": "https://github.com/longkou1988/zotero-submission-tracker/releases/download/v0.1.4/submission-tracker-0.1.4.xpi",
           "applications": {
             "zotero": {
               "strict_min_version": "8.0",

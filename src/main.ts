@@ -2,13 +2,12 @@ import { DashboardHost } from "./host";
 import { itemToRef } from "./zotero-adapter";
 
 const PLUGIN_ID = "submission-tracker@research-tools";
-const PLUGIN_VERSION = "0.1.3";
+const PLUGIN_VERSION = "0.1.4";
 let host: DashboardHost | null = null;
 const menuIDs: string[] = [];
 
 export async function startup(rootURI: string): Promise<void> {
   host = new DashboardHost(rootURI, PLUGIN_VERSION);
-  Zotero.Locale.registerPluginLocalization(rootURI);
 
   menuIDs.push(Zotero.MenuManager.registerMenu({
     menuID: "submission-tracker-tools",
