@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.3 — 2026-08-24
+
+- Define Fluent `.label` attributes required by `Zotero.MenuManager`, restoring the Tools and item-context menu entries.
+- Add automated checks that reject incorrectly structured menu-localization messages.
+- Increment the release version so Zotero replaces cached or previously installed 0.1.2 packages.
+
 ## 0.1.2 — 2026-08-24
 
 - Restore the `applications.zotero` manifest section expected by Zotero 10's validator.

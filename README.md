@@ -28,7 +28,7 @@ npm install
 npm run check
 ```
 
-生成文件位于 `build/submission-tracker-0.1.2.xpi`。开发、手工验收和发布方法见 [docs/TESTING.md](docs/TESTING.md) 与 [release/RELEASE_CHECKLIST.md](release/RELEASE_CHECKLIST.md)。
+生成文件位于 `build/submission-tracker-0.1.3.xpi`。开发、手工验收和发布方法见 [docs/TESTING.md](docs/TESTING.md) 与 [release/RELEASE_CHECKLIST.md](release/RELEASE_CHECKLIST.md)。
 
 ## 使用
 
@@ -50,7 +50,7 @@ npm run check
 
 ## 发布状态
 
-`0.1.2` 是首个 GitHub 公开预发布版本，已在 macOS 的 Zotero 10 中完成真实安装验证。源码、XPI 与自动更新清单发布在 [longkou1988/zotero-submission-tracker](https://github.com/longkou1988/zotero-submission-tracker)。在完成 macOS、Windows、Linux 以及 Zotero 8、9、10 的完整验收矩阵前，本版本不标记为稳定版。
+`0.1.3` 修复了 Zotero 8–10 正式菜单接口所需的本地化标签格式，并通过新版本号确保 Zotero 替换早期的 0.1.2 安装副本。源码、XPI 与自动更新清单发布在 [longkou1988/zotero-submission-tracker](https://github.com/longkou1988/zotero-submission-tracker)。在完成 macOS、Windows、Linux 以及 Zotero 8、9、10 的完整验收矩阵前，本版本不标记为稳定版。
 
 另见：[隐私说明](PRIVACY.md)、[已知限制](KNOWN_LIMITATIONS.md)、[英文 README](README.en.md)、[更新日志](CHANGELOG.md)。
 

@@ -1,2 +1,4 @@
-submission-tracker-open = Submission Tracker
-submission-tracker-create = Create Submission Record
+submission-tracker-open =
+    .label = Submission Tracker
+submission-tracker-create =
+    .label = Create Submission Record

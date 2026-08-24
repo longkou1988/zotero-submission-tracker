@@ -20,4 +20,12 @@ describe("security boundaries", () => {
     const runtime = sourceText("src") + sourceText("addon");
     expect(runtime).not.toMatch(/\bfetch\s*\(|XMLHttpRequest|WebSocket|zotero\.sqlite/i);
   });
+
+  it("provides Fluent label attributes required by MenuManager", () => {
+    for (const locale of ["en-US", "zh-CN"]) {
+      const fluent = read(`addon/locale/${locale}/submission-tracker.ftl`);
+      expect(fluent).toMatch(/^submission-tracker-open\s*=\s*\n\s+\.label\s*=\s*\S/m);
+      expect(fluent).toMatch(/^submission-tracker-create\s*=\s*\n\s+\.label\s*=\s*\S/m);
+    }
+  });
 });

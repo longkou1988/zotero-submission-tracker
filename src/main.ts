@@ -2,7 +2,7 @@ import { DashboardHost } from "./host";
 import { itemToRef } from "./zotero-adapter";
 
 const PLUGIN_ID = "submission-tracker@research-tools";
-const PLUGIN_VERSION = "0.1.2";
+const PLUGIN_VERSION = "0.1.3";
 let host: DashboardHost | null = null;
 const menuIDs: string[] = [];
 

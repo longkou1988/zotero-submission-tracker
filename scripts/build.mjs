@@ -26,6 +26,16 @@ try {
   throw new Error("applications.zotero.update_url must be a valid HTTPS URL");
 }
 
+for (const locale of ["en-US", "zh-CN"]) {
+  const fluent = await readFile(resolve(root, `addon/locale/${locale}/submission-tracker.ftl`), "utf8");
+  for (const messageID of ["submission-tracker-open", "submission-tracker-create"]) {
+    const labelPattern = new RegExp(`^${messageID}\\s*=\\s*\\n\\s+\\.label\\s*=\\s*\\S`, "m");
+    if (!labelPattern.test(fluent)) {
+      throw new Error(`${locale}/${messageID} must define a Fluent .label attribute for Zotero.MenuManager`);
+    }
+  }
+}
+
 const xpi = resolve(buildDir, `submission-tracker-${packageJson.version}.xpi`);
 
 await rm(buildDir, { recursive: true, force: true });

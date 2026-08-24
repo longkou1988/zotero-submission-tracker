@@ -21,10 +21,10 @@ npm install
 npm run check
 ```
 
-Install `build/submission-tracker-0.1.2.xpi` from Zotero’s Add-ons Manager using “Install Add-on From File…”. See [the test guide](docs/TESTING.md) and [release checklist](release/RELEASE_CHECKLIST.md).
+Install `build/submission-tracker-0.1.3.xpi` from Zotero’s Add-ons Manager using “Install Add-on From File…”. See [the test guide](docs/TESTING.md) and [release checklist](release/RELEASE_CHECKLIST.md).
 
 ## Compatibility and release status
 
-The manifest targets Zotero 8, 9, and 10. Version 0.1.2 supplies every manifest field required by Zotero 10's add-on validator and has been installed successfully on macOS with Zotero 10. Source, XPI, and update metadata are published at [longkou1988/zotero-submission-tracker](https://github.com/longkou1988/zotero-submission-tracker). This is a public prerelease, not a stable release, until the complete OS and Zotero-version acceptance matrix is finished.
+The manifest targets Zotero 8, 9, and 10. Version 0.1.3 fixes the Fluent label attributes required by Zotero's formal menu API and uses a new version number so Zotero replaces earlier 0.1.2 installation copies. Source, XPI, and update metadata are published at [longkou1988/zotero-submission-tracker](https://github.com/longkou1988/zotero-submission-tracker). This is a public prerelease, not a stable release, until the complete OS and Zotero-version acceptance matrix is finished.
 
 See [Privacy](PRIVACY.md), [Known limitations](KNOWN_LIMITATIONS.md), and [Changelog](CHANGELOG.md).
