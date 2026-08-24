@@ -1,4 +1,5 @@
 import { ZoteroItemRef } from "./core/types";
+import { Components, Services, Zotero } from "./runtime";
 
 export function regularSelectedItem(win: any): any | null {
   const items = win?.ZoteroPane?.getSelectedItems?.() ?? [];

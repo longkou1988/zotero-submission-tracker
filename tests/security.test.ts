@@ -29,9 +29,15 @@ describe("security boundaries", () => {
     }
   });
 
-  it("relies on Zotero's automatic localization loading before menu registration", () => {
+  it("passes Zotero globals explicitly into ESM and provides menu label fallbacks", () => {
     const startup = read("src/main.ts");
+    const bootstrap = read("addon/bootstrap.js");
     expect(startup).not.toContain("registerPluginLocalization");
     expect(startup.match(/Zotero\.MenuManager\.registerMenu/g)).toHaveLength(2);
+    expect(bootstrap).toContain("Services: RuntimeServices");
+    expect(bootstrap).toContain("IOUtils: RuntimeIOUtils");
+    expect(bootstrap).toContain("PathUtils: RuntimePathUtils");
+    expect(bootstrap).toContain("Components,");
+    expect(startup).toContain('setAttribute("label"');
   });
 });

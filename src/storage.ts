@@ -1,6 +1,7 @@
 import { assertNoSensitiveKeys, validateBackup } from "./core/validation";
 import { DEFAULT_SETTINGS, Settings, SubmissionTrackerBackup, TrackerData } from "./core/types";
 import { emptyData } from "./core/domain";
+import { IOUtils, PathUtils, Zotero } from "./runtime";
 
 export class JsonStore {
   readonly dir: string;

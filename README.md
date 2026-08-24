@@ -28,7 +28,7 @@ npm install
 npm run check
 ```
 
-生成文件位于 `build/submission-tracker-0.1.4.xpi`。开发、手工验收和发布方法见 [docs/TESTING.md](docs/TESTING.md) 与 [release/RELEASE_CHECKLIST.md](release/RELEASE_CHECKLIST.md)。
+生成文件位于 `build/submission-tracker-0.1.5.xpi`。开发、手工验收和发布方法见 [docs/TESTING.md](docs/TESTING.md) 与 [release/RELEASE_CHECKLIST.md](release/RELEASE_CHECKLIST.md)。
 
 ## 使用
 
@@ -50,7 +50,7 @@ npm run check
 
 ## 发布状态
 
-`0.1.4` 修复了 Zotero 10 启动阶段因调用不存在的手动本地化接口而中断、导致菜单入口不显示的问题。本地化资源由 Zotero 在插件启动前自动加载。源码、XPI 与自动更新清单发布在 [longkou1988/zotero-submission-tracker](https://github.com/longkou1988/zotero-submission-tracker)。在完成 macOS、Windows、Linux 以及 Zotero 8、9、10 的完整验收矩阵前，本版本不标记为稳定版。
+`0.1.5` 修复了 Zotero 10 中插件业务模块无法直接访问 Zotero 特权运行环境、因而在菜单注册前停止启动的问题。启动入口现在会显式传入所需环境；两个菜单也有不依赖本地化资源的中英文回退文字。源码、XPI 与自动更新清单发布在 [longkou1988/zotero-submission-tracker](https://github.com/longkou1988/zotero-submission-tracker)。在完成 macOS、Windows、Linux 以及 Zotero 8、9、10 的完整验收矩阵前，本版本不标记为稳定版。
 
 另见：[隐私说明](PRIVACY.md)、[已知限制](KNOWN_LIMITATIONS.md)、[英文 README](README.en.md)、[更新日志](CHANGELOG.md)。
 

@@ -6,23 +6,32 @@ describe("Zotero 10 startup", () => {
     vi.restoreAllMocks();
   });
 
-  it("registers both menus without a manual localization API", async () => {
-    const registerMenu = vi.fn((menu: { menuID: string }) => menu.menuID);
+  it("registers both menus and supplies visible fallback labels", async () => {
+    const registerMenu = vi.fn((menu: any) => menu.menuID);
     const unregisterMenu = vi.fn();
-    vi.stubGlobal("Zotero", {
-      MenuManager: { registerMenu, unregisterMenu }
-    });
+    const runtime = {
+      Zotero: { locale: "zh-CN", MenuManager: { registerMenu, unregisterMenu } },
+      Services: {}, IOUtils: {}, PathUtils: {}, Components: {}
+    };
 
     const plugin = await import("../src/main");
-    await expect(plugin.startup("resource://submission-tracker/")).resolves.toBeUndefined();
+    await expect(plugin.startup("resource://submission-tracker/", runtime)).resolves.toBeUndefined();
 
     expect(registerMenu).toHaveBeenCalledTimes(2);
     expect(registerMenu.mock.calls.map(([menu]) => menu.menuID)).toEqual([
       "submission-tracker-tools",
       "submission-tracker-create"
     ]);
+    const setAttribute = vi.fn();
+    registerMenu.mock.calls[0][0].menus[0].onShowing({}, { menuElem: { setAttribute } });
+    expect(setAttribute).toHaveBeenCalledWith("label", "投稿追踪");
 
     await plugin.shutdown();
     expect(unregisterMenu).toHaveBeenCalledTimes(2);
+  });
+
+  it("fails clearly when bootstrap does not supply the Zotero runtime", async () => {
+    const plugin = await import("../src/main");
+    await expect(plugin.startup("resource://submission-tracker/", {} as any)).rejects.toThrow(/missing Zotero runtime dependency/);
   });
 });

@@ -4,6 +4,7 @@ import { localDateString } from "./core/date";
 import { PRESET_STATUSES, StatusEvent, Submission, SystemProfile, ZoteroItemRef } from "./core/types";
 import { TrackerService } from "./service";
 import { copyText, itemToRef, openURL, regularSelectedItem, resolveItem, selectItem } from "./zotero-adapter";
+import { IOUtils, Services, Zotero } from "./runtime";
 
 const esc = (value: unknown) => String(value ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]!));
 const f = (form: HTMLFormElement, name: string) => (new FormData(form).get(name) ?? "").toString().trim();

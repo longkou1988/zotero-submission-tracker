@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { JsonStore } from "../src/storage";
+import { installRuntime } from "../src/runtime";
 import { fixture } from "./fixtures";
 
 const files = new Map<string, string>();
@@ -8,9 +9,7 @@ let failMove = false;
 beforeEach(() => {
   files.clear();
   failMove = false;
-  vi.stubGlobal("PathUtils", { join: (...parts: string[]) => parts.join("/") });
-  vi.stubGlobal("Zotero", { logError: vi.fn() });
-  vi.stubGlobal("IOUtils", {
+  const IOUtils = {
     makeDirectory: vi.fn(),
     exists: vi.fn(async (path: string) => files.has(path)),
     readUTF8: vi.fn(async (path: string) => { const value = files.get(path); if (value === undefined) throw new Error("missing"); return value; }),
@@ -21,6 +20,13 @@ beforeEach(() => {
       files.set(to, files.get(from)!); files.delete(from);
     }),
     remove: vi.fn(async (path: string) => { files.delete(path); })
+  };
+  installRuntime({
+    PathUtils: { join: (...parts: string[]) => parts.join("/") },
+    Zotero: { logError: vi.fn() },
+    IOUtils,
+    Services: {},
+    Components: {}
   });
 });
 

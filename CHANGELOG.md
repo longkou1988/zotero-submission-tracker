@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.1.5 — 2026-08-24
+
+- Pass Zotero's privileged runtime objects explicitly into the ESM bundle, fixing startup on Zotero 10 where those objects are not module globals.
+- Give both menu entries direct Chinese/English fallback labels so a localization problem cannot leave them blank or invisible.
+- Add startup and menu-registration regression tests for the Zotero 10 runtime boundary.
+
+## 0.1.4 — 2026-08-24
+
+- Remove an obsolete localization-registration call that is unavailable in Zotero 10.
+- Keep Fluent resources discoverable through the standard plugin locale layout.
+
 ## 0.1.3 — 2026-08-24
 
 - Define Fluent `.label` attributes required by `Zotero.MenuManager`, restoring the Tools and item-context menu entries.

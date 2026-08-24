@@ -2,6 +2,7 @@ import { TrackerService } from "./service";
 import { JsonStore } from "./storage";
 import { DashboardUI } from "./ui";
 import { ZoteroItemRef } from "./core/types";
+import { Services, Zotero } from "./runtime";
 
 const WINDOW_TYPE = "submission-tracker:dashboard";
 
