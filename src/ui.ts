@@ -2,12 +2,11 @@ import { dashboardRows, presetLabel, timeline } from "./core/domain";
 import { exportCSV } from "./core/csv";
 import { localDateString } from "./core/date";
 import { PRESET_STATUSES, StatusEvent, Submission, SystemProfile, ZoteroItemRef } from "./core/types";
-import { createHTMLElement, replaceWithParsedHTML } from "./dom";
+import { createHTMLElement, h } from "./dom";
 import { TrackerService } from "./service";
 import { copyText, itemToRef, openURL, regularSelectedItem, resolveItem, selectItem } from "./zotero-adapter";
 import { IOUtils, Services, Zotero } from "./runtime";
 
-const esc = (value: unknown) => String(value ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]!));
 const f = (form: HTMLFormElement, name: string) => (new FormData(form).get(name) ?? "").toString().trim();
 
 export class DashboardUI {
@@ -125,7 +124,7 @@ export class DashboardUI {
       const opt = this.doc.createElement("option");
       opt.value = s[0];
       if (this.filters.status === s[0]) opt.selected = true;
-      opt.textContent = esc(presetLabel(s[0], this.lang()));
+      opt.textContent = presetLabel(s[0], this.lang());
       selStatus.appendChild(opt);
     }
     filtersSection.appendChild(selStatus);
@@ -140,7 +139,7 @@ export class DashboardUI {
       const opt = this.doc.createElement("option");
       opt.value = p.id;
       if (this.filters.profile === p.id) opt.selected = true;
-      opt.textContent = esc(p.displayName);
+      opt.textContent = p.displayName;
       selProfile.appendChild(opt);
     }
     filtersSection.appendChild(selProfile);
@@ -243,7 +242,7 @@ export class DashboardUI {
     const btnJump = this.doc.createElement("button");
     btnJump.dataset.act = "jump";
     btnJump.title = unavailable ? this.t("关联文献不可用", "Linked item unavailable") : this.t("定位文献", "Show item");
-    btnJump.textContent = esc(row.manuscriptTitle);
+    btnJump.textContent = row.manuscriptTitle;
     td0.appendChild(btnJump);
     if (unavailable) {
       const badge = this.doc.createElement("span");
@@ -255,22 +254,22 @@ export class DashboardUI {
 
     // Cell 1: Journal
     const td1 = this.doc.createElement("td");
-    td1.textContent = esc(row.journalName);
+    td1.textContent = row.journalName;
     tr.appendChild(td1);
 
     // Cell 2: Manuscript ID
     const td2 = this.doc.createElement("td");
-    td2.textContent = esc(row.manuscriptId || "—");
+    td2.textContent = row.manuscriptId || "—";
     tr.appendChild(td2);
 
     // Cell 3: Current status
     const td3 = this.doc.createElement("td");
-    td3.textContent = esc(row.currentStatus?.statusLabel || "—");
+    td3.textContent = row.currentStatus?.statusLabel || "—";
     tr.appendChild(td3);
 
     // Cell 4: Status date
     const td4 = this.doc.createElement("td");
-    td4.textContent = esc(row.currentStatus?.effectiveDate || "—");
+    td4.textContent = row.currentStatus?.effectiveDate || "—";
     tr.appendChild(td4);
 
     // Cell 5: Days
@@ -280,14 +279,14 @@ export class DashboardUI {
 
     // Cell 6: Submission date
     const td6 = this.doc.createElement("td");
-    td6.textContent = esc(row.submissionDate);
+    td6.textContent = row.submissionDate;
     tr.appendChild(td6);
 
     // Cell 7: Next follow-up
     const td7 = this.doc.createElement("td");
     const badgeFollow = this.doc.createElement("span");
     badgeFollow.className = "badge " + row.followUp;
-    badgeFollow.textContent = esc(row.nextFollowUpDate || this.t("暂无安排", "None"));
+    badgeFollow.textContent = row.nextFollowUpDate || this.t("暂无安排", "None");
     td7.appendChild(badgeFollow);
     tr.appendChild(td7);
 
@@ -348,15 +347,34 @@ export class DashboardUI {
     if (act==="open") { const p=this.service.data.systemProfiles.find(p=>p.id===submission.systemProfileId); if(p){ if(this.service.settings.copyUsernameOnOpen&&p.username) await copyText(p.username); openURL(p.loginUrl); } }
   }
 
-  private dialog(title: string, body: string) {
-    const d = createHTMLElement(this.doc, "dialog");
-    d.innerHTML = `<h2>${esc(title)}</h2>${body}`;
-    this.doc.body.append(d);
+  /**
+   * Create a `<dialog>` and hand it to the builder. Every child node is
+   * created with `createElementNS(HTML, ...)` so that all buttons, labels
+   * and form controls render correctly inside a Zotero chrome document.
+   */
+  private dialog(title: string, build: (d: HTMLDialogElement) => void): HTMLDialogElement {
+    const d = createHTMLElement(this.doc, "dialog") as HTMLDialogElement;
+    const h2 = createHTMLElement(this.doc, "h2");
+    h2.textContent = title;
+    d.appendChild(h2);
+    build(d);
+    this.doc.body.appendChild(d);
     d.addEventListener("close", () => d.remove());
     d.showModal();
     return d;
   }
-  private alert(message:string){ const d=this.dialog(this.t("提示","Notice"),`<p>${esc(message)}</p><div class="dialog-actions"><button class="primary">OK</button></div>`); d.querySelector("button")!.addEventListener("click",()=>d.close()); }
+
+  private alert(message:string){
+    this.dialog(this.t("提示","Notice"), (d) => {
+      d.appendChild(h(this.doc, "p", null, message));
+      d.appendChild(h(this.doc, "div", { class: "dialog-actions" }, [
+        h(this.doc, "button", {
+          class: "primary",
+          onClick: () => d.close(),
+        }, "OK")
+      ]));
+    });
+  }
 
   private showItemChooser(){
     const item=regularSelectedItem(Services.wm.getMostRecentWindow("navigator:browser"));
@@ -368,50 +386,401 @@ export class DashboardUI {
 
   private showSubmissionForm(existing:Submission|null, ref:ZoteroItemRef){
     let workingRef = ref;
-    const profiles=this.service.data.systemProfiles.filter(p=>!p.archived||p.id===existing?.systemProfileId); const today=localDateString();
-    const d=this.dialog(existing?this.t("编辑投稿","Edit submission"):this.t("创建投稿记录","Create submission"),`<form class="form-grid">
-      <label class="span2">${this.t("关联的 Zotero 文献","Linked Zotero item")}<span class="inline"><input data-linked value="${esc(ref.cachedTitle)}" disabled>${existing?`<button type="button" data-relink>${this.t("重新关联当前所选文献","Relink selected item")}</button>`:""}</span></label>
-      <label class="span2">${this.t("本次投稿标题","Manuscript title")}<input name="title" required value="${esc(existing?.manuscriptTitle??ref.cachedTitle)}"></label>
-      <label>${this.t("期刊名称","Journal")}<input name="journal" required value="${esc(existing?.journalName??"")}"></label>
-      <label>${this.t("投稿系统配置","System profile")}<select name="profile"><option value="">—</option>${profiles.map(p=>`<option value="${p.id}" ${p.id===existing?.systemProfileId?"selected":""}>${esc(p.displayName)}</option>`).join("")}</select></label>
-      <label>${this.t("稿件编号","Manuscript ID")}<input name="manuscriptId" value="${esc(existing?.manuscriptId??"")}"></label>
-      <label>${this.t("投稿日期","Submission date")}<input type="date" name="submissionDate" required value="${esc(existing?.submissionDate??today)}"></label>
-      ${existing?"":`<label>${this.t("初始状态","Initial status")}<select name="initialStatus">${PRESET_STATUSES.map(s=>`<option value="${s[0]}">${esc(presetLabel(s[0],this.lang()))}</option>`).join("")}</select></label><label>${this.t("初始状态日期","Initial status date")}<input type="date" name="initialDate" required value="${today}"></label>`}
-      <label>${this.t("下一次跟进日期","Next follow-up")}<input type="date" name="follow" value="${esc(existing?.nextFollowUpDate??"")}"></label>
-      <label class="span2">${this.t("备注","Notes")}<textarea name="notes" rows="3">${esc(existing?.notes??"")}</textarea></label>
-      <div class="dialog-actions span2"><button type="button" data-close>${this.t("取消","Cancel")}</button><button class="primary">${this.t("保存","Save")}</button></div></form>`);
-    d.querySelector<HTMLElement>("[data-close]")!.addEventListener("click",()=>d.close());
-    const relink=d.querySelector<HTMLElement>("[data-relink]"); if(relink)relink.addEventListener("click",()=>{const item=regularSelectedItem(Services.wm.getMostRecentWindow("navigator:browser"));if(!item)return this.alert(this.t("请先在 Zotero 主窗口选择一篇普通文献。","Select one regular item in the Zotero library."));workingRef=itemToRef(item);d.querySelector<HTMLInputElement>("[data-linked]")!.value=workingRef.cachedTitle;});
-    d.querySelector("form")!.addEventListener("submit",async e=>{e.preventDefault();const form=e.target as HTMLFormElement;
-      if(existing) await this.service.updateSubmission(existing.id,{zoteroItem:workingRef,manuscriptTitle:f(form,"title"),journalName:f(form,"journal"),systemProfileId:f(form,"profile")||null,manuscriptId:f(form,"manuscriptId"),submissionDate:f(form,"submissionDate"),nextFollowUpDate:f(form,"follow")||null,notes:f(form,"notes")});
-      else await this.service.createSubmission({zoteroItem:workingRef,manuscriptTitle:f(form,"title"),journalName:f(form,"journal"),systemProfileId:f(form,"profile")||null,manuscriptId:f(form,"manuscriptId"),submissionDate:f(form,"submissionDate"),nextFollowUpDate:f(form,"follow")||null,notes:f(form,"notes"),initialStatusCode:f(form,"initialStatus"),initialStatusDate:f(form,"initialDate")});
-      d.close();this.render();});
+    const profiles=this.service.data.systemProfiles.filter(p=>!p.archived||p.id===existing?.systemProfileId);
+    const today=localDateString();
+    this.dialog(existing?this.t("编辑投稿","Edit submission"):this.t("创建投稿记录","Create submission"),(d)=>{
+      const form = h(this.doc, "form", { class: "form-grid", onSubmit: async (e) => {
+        e.preventDefault();
+        const submitted = e.target as HTMLFormElement;
+        if(existing) await this.service.updateSubmission(existing.id,{
+          zoteroItem:workingRef,
+          manuscriptTitle:f(submitted,"title"),
+          journalName:f(submitted,"journal"),
+          systemProfileId:f(submitted,"profile")||null,
+          manuscriptId:f(submitted,"manuscriptId"),
+          submissionDate:f(submitted,"submissionDate"),
+          nextFollowUpDate:f(submitted,"follow")||null,
+          notes:f(submitted,"notes")
+        });
+        else await this.service.createSubmission({
+          zoteroItem:workingRef,
+          manuscriptTitle:f(submitted,"title"),
+          journalName:f(submitted,"journal"),
+          systemProfileId:f(submitted,"profile")||null,
+          manuscriptId:f(submitted,"manuscriptId"),
+          submissionDate:f(submitted,"submissionDate"),
+          nextFollowUpDate:f(submitted,"follow")||null,
+          notes:f(submitted,"notes"),
+          initialStatusCode:f(submitted,"initialStatus"),
+          initialStatusDate:f(submitted,"initialDate")
+        });
+        d.close();
+        this.render();
+      }});
+
+      // Linked Zotero item
+      form.appendChild(h(this.doc, "label", { class: "span2" }, [
+        this.t("关联的 Zotero 文献","Linked Zotero item"),
+        h(this.doc, "span", { class: "inline" }, [
+          h(this.doc, "input", { "data-linked": "", value: ref.cachedTitle, disabled: true }),
+          ...(existing ? [h(this.doc, "button", {
+            type: "button",
+            onClick: () => {
+              const item=regularSelectedItem(Services.wm.getMostRecentWindow("navigator:browser"));
+              if(!item) return this.alert(this.t("请先在 Zotero 主窗口选择一篇普通文献。","Select one regular item in the Zotero library."));
+              workingRef=itemToRef(item);
+              (form.querySelector("[data-linked]") as HTMLInputElement).value = workingRef.cachedTitle;
+            }
+          }, this.t("重新关联当前所选文献","Relink selected item"))] : [])
+        ])
+      ]));
+
+      // Manuscript title
+      form.appendChild(h(this.doc, "label", { class: "span2" }, [
+        this.t("本次投稿标题","Manuscript title"),
+        h(this.doc, "input", { name: "title", required: true, value: existing?.manuscriptTitle ?? ref.cachedTitle })
+      ]));
+
+      // Journal
+      form.appendChild(h(this.doc, "label", null, [
+        this.t("期刊名称","Journal"),
+        h(this.doc, "input", { name: "journal", required: true, value: existing?.journalName ?? "" })
+      ]));
+
+      // System profile
+      form.appendChild(h(this.doc, "label", null, [
+        this.t("投稿系统配置","System profile"),
+        h(this.doc, "select", { name: "profile" }, [
+          h(this.doc, "option", { value: "" }, "—"),
+          ...profiles.map(p => h(this.doc, "option", { value: p.id, selected: p.id === existing?.systemProfileId }, p.displayName))
+        ])
+      ]));
+
+      // Manuscript ID
+      form.appendChild(h(this.doc, "label", null, [
+        this.t("稿件编号","Manuscript ID"),
+        h(this.doc, "input", { name: "manuscriptId", value: existing?.manuscriptId ?? "" })
+      ]));
+
+      // Submission date
+      form.appendChild(h(this.doc, "label", null, [
+        this.t("投稿日期","Submission date"),
+        h(this.doc, "input", { type: "date", name: "submissionDate", required: true, value: existing?.submissionDate ?? today })
+      ]));
+
+      if (!existing) {
+        form.appendChild(h(this.doc, "label", null, [
+          this.t("初始状态","Initial status"),
+          h(this.doc, "select", { name: "initialStatus" },
+            PRESET_STATUSES.map(s => h(this.doc, "option", { value: s[0] }, presetLabel(s[0], this.lang())))
+          )
+        ]));
+        form.appendChild(h(this.doc, "label", null, [
+          this.t("初始状态日期","Initial status date"),
+          h(this.doc, "input", { type: "date", name: "initialDate", required: true, value: today })
+        ]));
+      }
+
+      // Next follow-up
+      form.appendChild(h(this.doc, "label", null, [
+        this.t("下一次跟进日期","Next follow-up"),
+        h(this.doc, "input", { type: "date", name: "follow", value: existing?.nextFollowUpDate ?? "" })
+      ]));
+
+      // Notes
+      form.appendChild(h(this.doc, "label", { class: "span2" }, [
+        this.t("备注","Notes"),
+        h(this.doc, "textarea", { name: "notes", rows: 3 }, existing?.notes ?? "")
+      ]));
+
+      // Dialog actions (Cancel + Save)
+      form.appendChild(h(this.doc, "div", { class: "dialog-actions span2" }, [
+        h(this.doc, "button", {
+          type: "button",
+          onClick: () => d.close(),
+        }, this.t("取消","Cancel")),
+        h(this.doc, "button", {
+          class: "primary",
+          type: "submit",
+        }, this.t("保存","Save"))
+      ]));
+
+      d.appendChild(form);
+    });
   }
 
   private showStatusForm(submission:Submission,event?:StatusEvent){
-    const d=this.dialog(event?this.t("编辑状态","Edit status"):this.t("更新状态","Update status"),`<form class="form-grid"><label>${this.t("预设状态","Preset status")}<select name="code"><option value="">${this.t("自定义","Custom")}</option>${PRESET_STATUSES.map(s=>`<option value="${s[0]}" ${event?.statusCode===s[0]?"selected":""}>${esc(presetLabel(s[0],this.lang()))}</option>`).join("")}</select></label><label>${this.t("自定义状态名称","Custom label")}<input name="label" value="${esc(event?.statusType==="custom"?event.statusLabel:"")}"></label><label>${this.t("生效日期","Effective date")}<input type="date" name="date" required value="${event?.effectiveDate??localDateString()}"></label><label class="span2">${this.t("备注","Notes")}<textarea name="notes">${esc(event?.notes??"")}</textarea></label><div class="dialog-actions span2"><button type="button" data-close>${this.t("取消","Cancel")}</button><button class="primary">${this.t("保存","Save")}</button></div></form>`);
-    d.querySelector<HTMLElement>("[data-close]")!.addEventListener("click",()=>d.close()); d.querySelector("form")!.addEventListener("submit",async e=>{e.preventDefault();const form=e.target as HTMLFormElement,code=f(form,"code"),label=code?presetLabel(code,this.lang()):f(form,"label");if(!label)return this.alert(this.t("请输入自定义状态名称。","Enter a custom status label."));const patch={effectiveDate:f(form,"date"),statusType:(code?"preset":"custom") as "preset"|"custom",statusCode:code||null,statusLabel:label,notes:f(form,"notes")};if(event)await this.service.updateStatus(event.id,patch);else await this.service.addStatus({...patch,submissionId:submission.id});d.close();this.render();});
+    this.dialog(event?this.t("编辑状态","Edit status"):this.t("更新状态","Update status"),(d)=>{
+      const form = h(this.doc, "form", { class: "form-grid", onSubmit: async (e) => {
+        e.preventDefault();
+        const submitted = e.target as HTMLFormElement;
+        const code = f(submitted, "code");
+        const label = code ? presetLabel(code, this.lang()) : f(submitted, "label");
+        if (!label) return this.alert(this.t("请输入自定义状态名称。","Enter a custom status label."));
+        const patch = {
+          effectiveDate: f(submitted, "date"),
+          statusType: (code ? "preset" : "custom") as "preset" | "custom",
+          statusCode: code || null,
+          statusLabel: label,
+          notes: f(submitted, "notes"),
+        };
+        if (event) await this.service.updateStatus(event.id, patch);
+        else await this.service.addStatus({ ...patch, submissionId: submission.id });
+        d.close();
+        this.render();
+      }});
+
+      form.appendChild(h(this.doc, "label", null, [
+        this.t("预设状态","Preset status"),
+        h(this.doc, "select", { name: "code" }, [
+          h(this.doc, "option", { value: "" }, this.t("自定义","Custom")),
+          ...PRESET_STATUSES.map(s => h(this.doc, "option", { value: s[0], selected: event?.statusCode === s[0] }, presetLabel(s[0], this.lang())))
+        ])
+      ]));
+      form.appendChild(h(this.doc, "label", null, [
+        this.t("自定义状态名称","Custom label"),
+        h(this.doc, "input", { name: "label", value: event?.statusType === "custom" ? event.statusLabel : "" })
+      ]));
+      form.appendChild(h(this.doc, "label", null, [
+        this.t("生效日期","Effective date"),
+        h(this.doc, "input", { type: "date", name: "date", required: true, value: event?.effectiveDate ?? localDateString() })
+      ]));
+      form.appendChild(h(this.doc, "label", { class: "span2" }, [
+        this.t("备注","Notes"),
+        h(this.doc, "textarea", { name: "notes" }, event?.notes ?? "")
+      ]));
+
+      form.appendChild(h(this.doc, "div", { class: "dialog-actions span2" }, [
+        h(this.doc, "button", {
+          type: "button",
+          onClick: () => d.close(),
+        }, this.t("取消","Cancel")),
+        h(this.doc, "button", { class: "primary", type: "submit" }, this.t("保存","Save"))
+      ]));
+
+      d.appendChild(form);
+    });
   }
 
   private showDetails(submission:Submission){
-    const events=timeline(this.service.data.statusEvents.filter(e=>e.submissionId===submission.id)); const profile=this.service.data.systemProfiles.find(p=>p.id===submission.systemProfileId);
-    const d=this.dialog(submission.manuscriptTitle,`<p><b>${this.t("期刊","Journal")}:</b> ${esc(submission.journalName)}　<b>${this.t("稿件编号","ID")}:</b> ${esc(submission.manuscriptId||"—")}</p>${profile?`<p><b>${this.t("投稿系统","System")}:</b> ${esc(profile.displayName)} <button id="copy-user">${this.t("复制用户名","Copy username")}</button></p>`:""}<h3>${this.t("状态时间线","Status timeline")}</h3><ol class="timeline">${events.map(e=>`<li data-event="${e.id}"><b>${esc(e.effectiveDate)}　${esc(e.statusLabel)}</b><br><small>${esc(e.notes)}</small><br><button data-edit>${this.t("编辑","Edit")}</button> <button class="danger" data-delete>${this.t("删除","Delete")}</button></li>`).join("")}</ol><div class="dialog-actions"><button class="primary" data-close>${this.t("关闭","Close")}</button></div>`);
-    d.querySelector<HTMLElement>("[data-close]")!.addEventListener("click",()=>d.close()); if(profile)d.querySelector<HTMLElement>("#copy-user")!.addEventListener("click",()=>copyText(profile.username));
-    d.querySelectorAll<HTMLElement>("li[data-event]").forEach(li=>{const event=events.find(e=>e.id===li.dataset.event)!;li.querySelector<HTMLElement>("[data-edit]")!.addEventListener("click",()=>{d.close();this.showStatusForm(submission,event)});li.querySelector<HTMLElement>("[data-delete]")!.addEventListener("click",async()=>{if(!this.win.confirm(this.t("确定删除这条状态事件？","Delete this status event?")))return;try{await this.service.deleteStatus(event.id);d.close();this.render();}catch(err){this.alert(String(err));}});});
+    const events=timeline(this.service.data.statusEvents.filter(e=>e.submissionId===submission.id));
+    const profile=this.service.data.systemProfiles.find(p=>p.id===submission.systemProfileId);
+    this.dialog(submission.manuscriptTitle,(d)=>{
+      d.appendChild(h(this.doc, "p", null, [
+        h(this.doc, "b", null, this.t("期刊","Journal") + ": "),
+        submission.journalName,
+        "　",
+        h(this.doc, "b", null, this.t("稿件编号","ID") + ": "),
+        submission.manuscriptId || "—"
+      ]));
+      if (profile) {
+        d.appendChild(h(this.doc, "p", null, [
+          h(this.doc, "b", null, this.t("投稿系统","System") + ": "),
+          profile.displayName + " ",
+          h(this.doc, "button", {
+            id: "copy-user",
+            onClick: () => copyText(profile.username),
+          }, this.t("复制用户名","Copy username"))
+        ]));
+      }
+      d.appendChild(h(this.doc, "h3", null, this.t("状态时间线","Status timeline")));
+      const list = h(this.doc, "ol", { class: "timeline" });
+      for (const e of events) {
+        const li = h(this.doc, "li", { dataset: { event: e.id } }, [
+          h(this.doc, "b", null, `${e.effectiveDate}　${e.statusLabel}`),
+          h(this.doc, "br"),
+          h(this.doc, "small", null, e.notes),
+          h(this.doc, "br"),
+          h(this.doc, "button", {
+            onClick: () => { d.close(); this.showStatusForm(submission, e); },
+          }, this.t("编辑","Edit")),
+          " ",
+          h(this.doc, "button", {
+            class: "danger",
+            onClick: async () => {
+              if (!this.win.confirm(this.t("确定删除这条状态事件？","Delete this status event?"))) return;
+              try { await this.service.deleteStatus(e.id); d.close(); this.render(); }
+              catch (err) { this.alert(String(err)); }
+            },
+          }, this.t("删除","Delete"))
+        ]);
+        list.appendChild(li);
+      }
+      d.appendChild(list);
+
+      d.appendChild(h(this.doc, "div", { class: "dialog-actions" }, [
+        h(this.doc, "button", {
+          class: "primary",
+          onClick: () => d.close(),
+        }, this.t("关闭","Close"))
+      ]));
+    });
   }
 
   private showProfiles(){
-    const d=this.dialog(this.t("投稿系统配置","Submission systems"),`<div id="profile-list">${this.service.data.systemProfiles.map(p=>`<p><b>${esc(p.displayName)}</b> · ${esc(p.platformName)} ${p.archived?`<span class="muted">(${this.t("已归档","Archived")})</span>`:""}<br><small>${esc(p.loginUrl)} · ${esc(p.username)}</small><br><button data-edit="${p.id}">${this.t("编辑","Edit")}</button> ${!p.archived?`<button data-archive="${p.id}">${this.t("归档","Archive")}</button>`:""}</p>`).join("")||`<p class="muted">${this.t("尚无配置","No profiles")}</p>`}</div><div class="dialog-actions"><button data-new>${this.t("新建配置","New profile")}</button><button class="primary" data-close>${this.t("关闭","Close")}</button></div>`);
-    d.querySelector<HTMLElement>("[data-close]")!.addEventListener("click",()=>d.close());d.querySelector<HTMLElement>("[data-new]")!.addEventListener("click",()=>{d.close();this.profileForm()});d.querySelectorAll<HTMLElement>("[data-edit]").forEach(b=>b.addEventListener("click",()=>{d.close();this.profileForm(this.service.data.systemProfiles.find(p=>p.id===b.dataset.edit))}));d.querySelectorAll<HTMLElement>("[data-archive]").forEach(b=>b.addEventListener("click",async()=>{await this.service.archiveProfile(b.dataset.archive!);d.close();this.render();this.showProfiles()}));
+    this.dialog(this.t("投稿系统配置","Submission systems"),(d)=>{
+      const list = h(this.doc, "div", { id: "profile-list" });
+      const profiles = this.service.data.systemProfiles;
+      if (!profiles.length) {
+        list.appendChild(h(this.doc, "p", { class: "muted" }, this.t("尚无配置","No profiles")));
+      } else {
+        for (const p of profiles) {
+          list.appendChild(h(this.doc, "p", null, [
+            h(this.doc, "b", null, p.displayName),
+            " · " + p.platformName,
+            p.archived ? " " + h(this.doc, "span", { class: "muted" }, "(" + this.t("已归档","Archived") + ")") : null,
+            h(this.doc, "br"),
+            h(this.doc, "small", null, `${p.loginUrl} · ${p.username}`),
+            h(this.doc, "br"),
+            h(this.doc, "button", {
+              onClick: () => { d.close(); this.profileForm(p); },
+            }, this.t("编辑","Edit")),
+            !p.archived ? " " + h(this.doc, "button", {
+              onClick: async () => { await this.service.archiveProfile(p.id); d.close(); this.render(); this.showProfiles(); },
+            }, this.t("归档","Archive")) : null
+          ]));
+        }
+      }
+      d.appendChild(list);
+
+      d.appendChild(h(this.doc, "div", { class: "dialog-actions" }, [
+        h(this.doc, "button", {
+          onClick: () => { d.close(); this.profileForm(); },
+        }, this.t("新建配置","New profile")),
+        h(this.doc, "button", {
+          class: "primary",
+          onClick: () => d.close(),
+        }, this.t("关闭","Close"))
+      ]));
+    });
   }
 
   private profileForm(p?:SystemProfile){
-    const d=this.dialog(p?this.t("编辑投稿系统","Edit system"):this.t("新建投稿系统","New system"),`<form class="form-grid"><label class="span2">${this.t("配置名称","Display name")}<input required name="display" value="${esc(p?.displayName??"")}"></label><label>${this.t("期刊名称","Journal")}<input required name="journal" value="${esc(p?.journalName??"")}"></label><label>${this.t("平台名称","Platform")}<input required name="platform" value="${esc(p?.platformName??"")}"></label><label class="span2">${this.t("登录地址","Login URL")}<input type="url" required name="url" value="${esc(p?.loginUrl??"")}"></label><label class="span2">${this.t("用户名或登录邮箱","Username or email")}<input name="username" value="${esc(p?.username??"")}"></label><label class="span2">${this.t("备注","Notes")}<textarea name="notes">${esc(p?.notes??"")}</textarea></label><p class="span2 muted">${this.t("本插件不保存密码。请使用浏览器或密码管理器。","This plugin never stores passwords. Use your browser or a password manager.")}</p><div class="dialog-actions span2"><button type="button" data-close>${this.t("取消","Cancel")}</button><button class="primary">${this.t("保存","Save")}</button></div></form>`);d.querySelector<HTMLElement>("[data-close]")!.addEventListener("click",()=>d.close());d.querySelector("form")!.addEventListener("submit",async e=>{e.preventDefault();const form=e.target as HTMLFormElement;await this.service.saveProfile({...(p?{id:p.id}:{}),displayName:f(form,"display"),journalName:f(form,"journal"),platformName:f(form,"platform"),loginUrl:f(form,"url"),username:f(form,"username"),notes:f(form,"notes"),archived:p?.archived??false});d.close();this.render();this.showProfiles();});
+    this.dialog(p?this.t("编辑投稿系统","Edit system"):this.t("新建投稿系统","New system"),(d)=>{
+      const form = h(this.doc, "form", { class: "form-grid", onSubmit: async (e) => {
+        e.preventDefault();
+        const submitted = e.target as HTMLFormElement;
+        await this.service.saveProfile({
+          ...(p ? { id: p.id } : {}),
+          displayName: f(submitted, "display"),
+          journalName: f(submitted, "journal"),
+          platformName: f(submitted, "platform"),
+          loginUrl: f(submitted, "url"),
+          username: f(submitted, "username"),
+          notes: f(submitted, "notes"),
+          archived: p?.archived ?? false,
+        });
+        d.close();
+        this.render();
+        this.showProfiles();
+      }});
+
+      form.appendChild(h(this.doc, "label", { class: "span2" }, [
+        this.t("配置名称","Display name"),
+        h(this.doc, "input", { required: true, name: "display", value: p?.displayName ?? "" })
+      ]));
+      form.appendChild(h(this.doc, "label", null, [
+        this.t("期刊名称","Journal"),
+        h(this.doc, "input", { required: true, name: "journal", value: p?.journalName ?? "" })
+      ]));
+      form.appendChild(h(this.doc, "label", null, [
+        this.t("平台名称","Platform"),
+        h(this.doc, "input", { required: true, name: "platform", value: p?.platformName ?? "" })
+      ]));
+      form.appendChild(h(this.doc, "label", { class: "span2" }, [
+        this.t("登录地址","Login URL"),
+        h(this.doc, "input", { type: "url", required: true, name: "url", value: p?.loginUrl ?? "" })
+      ]));
+      form.appendChild(h(this.doc, "label", { class: "span2" }, [
+        this.t("用户名或登录邮箱","Username or email"),
+        h(this.doc, "input", { name: "username", value: p?.username ?? "" })
+      ]));
+      form.appendChild(h(this.doc, "label", { class: "span2" }, [
+        this.t("备注","Notes"),
+        h(this.doc, "textarea", { name: "notes" }, p?.notes ?? "")
+      ]));
+      form.appendChild(h(this.doc, "p", { class: "span2 muted" }, this.t("本插件不保存密码。请使用浏览器或密码管理器。","This plugin never stores passwords. Use your browser or a password manager.")));
+
+      form.appendChild(h(this.doc, "div", { class: "dialog-actions span2" }, [
+        h(this.doc, "button", { type: "button", onClick: () => d.close() }, this.t("取消","Cancel")),
+        h(this.doc, "button", { class: "primary", type: "submit" }, this.t("保存","Save"))
+      ]));
+
+      d.appendChild(form);
+    });
   }
 
   private showSettings(){
-    const s=this.service.settings;const d=this.dialog(this.t("设置与备份","Settings & backups"),`<form><label>${this.t("语言","Language")}<select name="language"><option value="auto" ${s.language==="auto"?"selected":""}>${this.t("跟随 Zotero","Follow Zotero")}</option><option value="zh-CN" ${s.language==="zh-CN"?"selected":""}>简体中文</option><option value="en-US" ${s.language==="en-US"?"selected":""}>English</option></select></label><label><span><input type="checkbox" name="copy" ${s.copyUsernameOnOpen?"checked":""}> ${this.t("打开投稿系统时同时复制用户名","Copy username when opening a system")}</span></label></form><hr><p>${this.t("完整 JSON 备份包含用户名和登录地址，但不包含任何密码。","A full JSON backup includes usernames and login addresses, but no passwords.")}</p><div class="actions"><button data-export-json>${this.t("导出完整 JSON","Export full JSON")}</button><button data-restore>${this.t("恢复 JSON","Restore JSON")}</button><button data-export-csv>${this.t("导出 CSV","Export CSV")}</button></div><hr><button class="danger" data-clear>${this.t("删除全部本地投稿数据","Delete all local data")}</button><div class="dialog-actions"><button class="primary" data-close>${this.t("关闭","Close")}</button></div>`);
-    d.querySelector<HTMLSelectElement>("[name=language]")!.addEventListener("change",async e=>{this.service.settings.language=(e.target as HTMLSelectElement).value as any;await this.service.store.saveSettings(this.service.settings);d.close();this.render();});d.querySelector<HTMLInputElement>("[name=copy]")!.addEventListener("change",async e=>{this.service.settings.copyUsernameOnOpen=(e.target as HTMLInputElement).checked;await this.service.store.saveSettings(this.service.settings);});d.querySelector<HTMLElement>("[data-close]")!.addEventListener("click",()=>d.close());d.querySelector<HTMLElement>("[data-export-json]")!.addEventListener("click",()=>this.exportFile("submission-tracker-backup.json",this.service.store.exportBackup(this.service.data)));d.querySelector<HTMLElement>("[data-export-csv]")!.addEventListener("click",()=>this.exportFile("submission-tracker.csv",Promise.resolve(exportCSV(this.service.data))));d.querySelector<HTMLElement>("[data-restore]")!.addEventListener("click",()=>this.restoreFile(d));d.querySelector<HTMLElement>("[data-clear]")!.addEventListener("click",async()=>{if(!this.win.confirm(this.t("请先备份。确定删除全部投稿数据？此操作会保留一份 .bak。","Back up first. Delete all submission data? A .bak copy will be retained."))||!this.win.confirm(this.t("再次确认：删除全部本地投稿数据。","Confirm again: delete all local submission data.")))return;await this.service.store.clear();await this.service.init();d.close();this.render();});
+    const s = this.service.settings;
+    this.dialog(this.t("设置与备份","Settings & backups"), (d) => {
+      // Language
+      d.appendChild(h(this.doc, "label", null, [
+        this.t("语言","Language"),
+        h(this.doc, "select", {
+          name: "language",
+          onChange: async (e) => {
+            this.service.settings.language = (e.target as HTMLSelectElement).value as "auto" | "zh-CN" | "en-US";
+            await this.service.store.saveSettings(this.service.settings);
+            d.close();
+            this.render();
+          },
+        }, [
+          h(this.doc, "option", { value: "auto", selected: s.language === "auto" }, this.t("跟随 Zotero","Follow Zotero")),
+          h(this.doc, "option", { value: "zh-CN", selected: s.language === "zh-CN" }, "简体中文"),
+          h(this.doc, "option", { value: "en-US", selected: s.language === "en-US" }, "English")
+        ])
+      ]));
+      // Copy username
+      d.appendChild(h(this.doc, "label", null, [
+        h(this.doc, "span", null, [
+          h(this.doc, "input", {
+            type: "checkbox",
+            name: "copy",
+            checked: s.copyUsernameOnOpen,
+            onChange: async (e) => {
+              this.service.settings.copyUsernameOnOpen = (e.target as HTMLInputElement).checked;
+              await this.service.store.saveSettings(this.service.settings);
+            },
+          }),
+          " " + this.t("打开投稿系统时同时复制用户名","Copy username when opening a system")
+        ])
+      ]));
+      d.appendChild(h(this.doc, "hr"));
+      d.appendChild(h(this.doc, "p", null, this.t("完整 JSON 备份包含用户名和登录地址，但不包含任何密码。","A full JSON backup includes usernames and login addresses, but no passwords.")));
+      d.appendChild(h(this.doc, "div", { class: "actions" }, [
+        h(this.doc, "button", {
+          onClick: () => this.exportFile("submission-tracker-backup.json", this.service.store.exportBackup(this.service.data)),
+        }, this.t("导出完整 JSON","Export full JSON")),
+        h(this.doc, "button", {
+          onClick: () => this.restoreFile(d),
+        }, this.t("恢复 JSON","Restore JSON")),
+        h(this.doc, "button", {
+          onClick: () => this.exportFile("submission-tracker.csv", Promise.resolve(exportCSV(this.service.data))),
+        }, this.t("导出 CSV","Export CSV"))
+      ]));
+      d.appendChild(h(this.doc, "hr"));
+      d.appendChild(h(this.doc, "button", {
+        class: "danger",
+        onClick: async () => {
+          if (!this.win.confirm(this.t("请先备份。确定删除全部投稿数据？此操作会保留一份 .bak。","Back up first. Delete all submission data? A .bak copy will be retained."))) return;
+          if (!this.win.confirm(this.t("再次确认：删除全部本地投稿数据。","Confirm again: delete all local submission data."))) return;
+          await this.service.store.clear();
+          await this.service.init();
+          d.close();
+          this.render();
+        },
+      }, this.t("删除全部本地投稿数据","Delete all local data")));
+      // Explicit Cancel + Close buttons
+      d.appendChild(h(this.doc, "div", { class: "dialog-actions" }, [
+        h(this.doc, "button", {
+          onClick: () => d.close(),
+        }, this.t("取消","Cancel")),
+        h(this.doc, "button", {
+          class: "primary",
+          onClick: () => d.close(),
+        }, this.t("关闭","Close"))
+      ]));
+    });
   }
 
   private async picker(mode:"open"|"save",name?:string){const fp=new Zotero.FilePicker();await fp.init(this.win,this.t(mode==="open"?"选择备份文件":"选择保存位置",mode==="open"?"Choose backup":"Choose save location"),mode==="open"?fp.modeOpen:fp.modeSave);fp.appendFilter(mode==="open"?"JSON":"JSON / CSV",mode==="open"?"*.json":"*.json;*.csv");if(name)fp.defaultString=name;const result=await fp.show();return result===fp.returnCancel?null:fp.file.path;}

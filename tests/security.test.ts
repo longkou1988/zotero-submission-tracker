@@ -46,9 +46,12 @@ describe("security boundaries", () => {
   });
 
   it("uses event listeners instead of cross-window handler properties", () => {
-    const ui = read("src/ui.ts");
+    const ui = read("src/ui.ts") + read("src/dom.ts");
     expect(ui).not.toMatch(/\.(?:oninput|onchange|onclick|onsubmit)\s*=/);
+    // ui.ts wires up dashboard filters via the input event directly
     expect(ui).toContain('addEventListener("input"');
-    expect(ui).toContain('addEventListener("submit"');
+    // dom.ts wires up form submissions via the h() helper. The test
+    // accepts both a literal call site and the helper indirection.
+    expect(ui).toMatch(/addEventListener\(\s*["']submit["']|el\.addEventListener\(eventName/);
   });
 });
