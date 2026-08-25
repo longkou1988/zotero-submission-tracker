@@ -69,6 +69,14 @@ export class DashboardUI {
       <div class="table-wrap">${rows.length ? `<table><thead><tr>${[["论文","Paper"],["期刊","Journal"],["稿件编号","Manuscript ID"],["当前状态","Current status"],["状态日期","Status date"],["持续天数","Days"],["投稿日期","Submitted"],["下一次跟进","Next follow-up"],["投稿系统","System"],["操作","Actions"]].map(x=>`<th>${this.t(x[0],x[1])}</th>`).join("")}</tr></thead><tbody>${rows.map(row=>this.row(row)).join("")}</tbody></table>` : `<div class="empty">${this.t("还没有符合条件的投稿记录。","No matching submissions.")}</div>`}</div>`;
     // The iframe provides a standard HTML document, so innerHTML works reliably.
     app.innerHTML = dashboardMarkup;
+    // Debug: verify #q exists in the document after innerHTML
+    const qCheck = app.querySelector("#q");
+    if (!qCheck) {
+      Zotero.debug("Submission Tracker DEBUG: #q missing after innerHTML. app.ownerDocument=" + app.ownerDocument + ", app.ownerDocument.URL=" + app.ownerDocument.URL + ", app.children=" + app.children.length);
+      // Try to find in the whole document
+      const globalQ = this.doc.querySelector("#q");
+      Zotero.debug("Submission Tracker DEBUG: global #q=" + (globalQ ? "found" : "missing"));
+    }
     this.bind(app);
   }
 
