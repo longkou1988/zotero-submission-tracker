@@ -5,6 +5,7 @@
         {
           "version": "0.1.15",
           "update_link": "https://github.com/longkou1988/zotero-submission-tracker/releases/download/v0.1.15/submission-tracker-0.1.15.xpi",
+          "update_hash": "sha256:2693f19a450f0bc11a5c53eb8ee6dac58fd3479703d2e098da0b2614e69d1d26",
           "applications": {
             "zotero": {
               "strict_min_version": "8.0",
