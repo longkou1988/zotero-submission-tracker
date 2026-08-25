@@ -50,7 +50,12 @@ export function waitForDashboardDocument(
         return true;
       }
       try {
-        const document = win.document;
+        // The dashboard UI lives inside an <iframe> so it runs in a real HTML
+        // document. A chrome top-level window document is not a normal HTML
+        // document, which breaks innerHTML/querySelector for HTML-namespaced
+        // nodes (#q etc.). Inspect the iframe's contentDocument instead.
+        const frame = win.document.getElementById("frame") as HTMLIFrameElement | null;
+        const document = frame?.contentDocument ?? null;
         if (document?.getElementById("app")) {
           finish(document);
           return true;
@@ -115,7 +120,8 @@ export class DashboardHost {
       this.win = opened;
       opened.addEventListener("unload", () => { this.win = null; this.ui = null; }, { once: true });
       const dashboardDocument = await waitForDashboardDocument(opened);
-      dashboardDocument.documentElement.setAttribute("windowtype", WINDOW_TYPE);
+      // windowtype must live on the top-level window, not the iframe content document.
+      opened.document?.documentElement?.setAttribute("windowtype", WINDOW_TYPE);
       if (!dashboardDocument.getElementById("app")) {
         throw new Error("The dashboard document loaded without its application container.");
       }

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.16 — 2026-08-25
+
+- **根因修复：iframe 化看板**，彻底解决“Dashboard element is missing after render: #q”报错。
+  - 旧版直接在 chrome 顶层窗口文档渲染，该文档非标准 HTML 文档，导致动态插入的 `#q` 等控件无法被 querySelector 命中（命名空间不匹配）。
+  - 新版 `dashboard.html` 仅作 iframe 外壳，真正 UI 跑在 `dashboard-content.html` 的 `contentDocument`（标准 HTML 文档）里，`innerHTML`/`querySelector` 语义完全正常。
+  - `host.ts` 的 `waitForDashboardDocument` 现在等待 `iframe.contentDocument` 里的 `#app`。
+  - `ui.ts` 保留 `replaceWithParsedHTML` 主路径，并在 `#q` 仍未命中时退回 `innerHTML`（双重兜底）。
+
 ## 0.1.15 — 2026-08-25
 
 - 修复 Zotero 特权窗口将动态标记解析到错误命名空间，导致主看板搜索框 `#q` 等控件实际未生成的问题。

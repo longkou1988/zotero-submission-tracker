@@ -11,6 +11,7 @@ const packageJson = JSON.parse(await readFile(resolve(root, "package.json"), "ut
 const manifest = JSON.parse(await readFile(resolve(root, "addon/manifest.json"), "utf8"));
 const bootstrap = await readFile(resolve(root, "addon/bootstrap.js"), "utf8");
 const dashboard = await readFile(resolve(root, "addon/content/dashboard.html"), "utf8");
+const dashboardContent = await readFile(resolve(root, "addon/content/dashboard-content.html"), "utf8");
 const hostSource = await readFile(resolve(root, "src/host.ts"), "utf8");
 
 if (manifest.version !== packageJson.version) {
@@ -26,11 +27,19 @@ if (!bootstrap.includes('["content", "submission-tracker", `${rootURI}content/`]
 if (!bootstrap.includes("chromeHandle?.destruct()")) {
   throw new Error("bootstrap.js must unregister its chrome content package during shutdown");
 }
+// Outer dashboard.html (iframe shell)
 if (!/^<!doctype html>/i.test(dashboard.trimStart()) || /<\?xml|xmlns=/i.test(dashboard)) {
   throw new Error("dashboard.html must be a standard HTML document, not XHTML/XML");
 }
-if (!dashboard.includes('id="app"')) {
-  throw new Error("dashboard.html must contain the dashboard app root");
+if (!dashboard.includes('id="frame"') || !dashboard.includes('dashboard-content.html')) {
+  throw new Error("dashboard.html must contain the iframe shell pointing to dashboard-content.html");
+}
+// Inner dashboard-content.html (actual UI)
+if (!/^<!doctype html>/i.test(dashboardContent.trimStart()) || /<\?xml|xmlns=/i.test(dashboardContent)) {
+  throw new Error("dashboard-content.html must be a standard HTML document, not XHTML/XML");
+}
+if (!dashboardContent.includes('id="app"')) {
+  throw new Error("dashboard-content.html must contain the dashboard app root");
 }
 if (
   !hostSource.includes('"chrome://submission-tracker/content/dashboard.html"') ||
