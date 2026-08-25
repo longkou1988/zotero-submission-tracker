@@ -29,6 +29,9 @@ dialog h2 { margin-top:0; }
 .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
 label { display:grid; gap:5px; }.span2 { grid-column:1/-1; }
 label input,label select,label textarea { width:100%;padding:7px;border:1px solid var(--border);border-radius:5px;background:Field;color:FieldText; }
+.date-field { display:grid; gap:5px; }
+.date-field input { width:100%;padding:7px;border:1px solid var(--border);border-radius:5px;background:Field;color:FieldText; font-variant-numeric: tabular-nums; }
+.date-hint { font-size:11px; line-height:1.4; }
 .dialog-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:16px; }
 .timeline { list-style:none;padding:0; }.timeline li { border-left:3px solid var(--accent);padding:0 0 16px 12px; }
 .timeline small { color:GrayText; }.muted { color:GrayText; }

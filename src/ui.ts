@@ -376,6 +376,40 @@ export class DashboardUI {
     });
   }
 
+  /**
+   * Build an ISO-date text input wrapped in a `<label>` that also carries
+   * the human-readable field name and a tiny format hint.
+   *
+   * Firefox's native `<input type="date">` picker is a popup that fails to
+   * open inside a Zotero chrome iframe (the chrome privileged window does
+   * not surface the date picker at all). Falling back to a plain text
+   * field with the `yyyy-mm-dd` hint is the reliable fix: the user types
+   * the date directly, and we still use HTML5's `pattern` for in-form
+   * validation.
+   */
+  private dateField(labelText: string, name: string, value: string, required: boolean): HTMLElement {
+    const wrapper = createHTMLElement(this.doc, "label");
+    wrapper.className = "date-field";
+    const text = createHTMLElement(this.doc, "span");
+    text.textContent = labelText;
+    wrapper.appendChild(text);
+    const input = createHTMLElement(this.doc, "input");
+    input.type = "text";
+    input.name = name;
+    input.placeholder = "yyyy-mm-dd";
+    input.setAttribute("pattern", "\\d{4}-\\d{2}-\\d{2}");
+    input.setAttribute("inputmode", "numeric");
+    input.setAttribute("autocomplete", "off");
+    if (required) input.required = true;
+    input.value = value ?? "";
+    wrapper.appendChild(input);
+    const hint = createHTMLElement(this.doc, "small");
+    hint.className = "muted date-hint";
+    hint.textContent = this.t("格式 yyyy-mm-dd；可留空", "Format yyyy-mm-dd; may be left blank.");
+    wrapper.appendChild(hint);
+    return wrapper;
+  }
+
   private showItemChooser(){
     const item=regularSelectedItem(Services.wm.getMostRecentWindow("navigator:browser"));
     if(item) this.showSubmissionForm(null,itemToRef(item));
@@ -389,34 +423,7 @@ export class DashboardUI {
     const profiles=this.service.data.systemProfiles.filter(p=>!p.archived||p.id===existing?.systemProfileId);
     const today=localDateString();
     this.dialog(existing?this.t("编辑投稿","Edit submission"):this.t("创建投稿记录","Create submission"),(d)=>{
-      const form = h(this.doc, "form", { class: "form-grid", onSubmit: async (e) => {
-        e.preventDefault();
-        const submitted = e.target as HTMLFormElement;
-        if(existing) await this.service.updateSubmission(existing.id,{
-          zoteroItem:workingRef,
-          manuscriptTitle:f(submitted,"title"),
-          journalName:f(submitted,"journal"),
-          systemProfileId:f(submitted,"profile")||null,
-          manuscriptId:f(submitted,"manuscriptId"),
-          submissionDate:f(submitted,"submissionDate"),
-          nextFollowUpDate:f(submitted,"follow")||null,
-          notes:f(submitted,"notes")
-        });
-        else await this.service.createSubmission({
-          zoteroItem:workingRef,
-          manuscriptTitle:f(submitted,"title"),
-          journalName:f(submitted,"journal"),
-          systemProfileId:f(submitted,"profile")||null,
-          manuscriptId:f(submitted,"manuscriptId"),
-          submissionDate:f(submitted,"submissionDate"),
-          nextFollowUpDate:f(submitted,"follow")||null,
-          notes:f(submitted,"notes"),
-          initialStatusCode:f(submitted,"initialStatus"),
-          initialStatusDate:f(submitted,"initialDate")
-        });
-        d.close();
-        this.render();
-      }});
+      const form = h(this.doc, "form", { class: "form-grid" });
 
       // Linked Zotero item
       form.appendChild(h(this.doc, "label", { class: "span2" }, [
@@ -463,10 +470,7 @@ export class DashboardUI {
       ]));
 
       // Submission date
-      form.appendChild(h(this.doc, "label", null, [
-        this.t("投稿日期","Submission date"),
-        h(this.doc, "input", { type: "date", name: "submissionDate", required: true, value: existing?.submissionDate ?? today })
-      ]));
+      form.appendChild(this.dateField(this.t("投稿日期","Submission date"), "submissionDate", existing?.submissionDate ?? today, true));
 
       if (!existing) {
         form.appendChild(h(this.doc, "label", null, [
@@ -475,17 +479,11 @@ export class DashboardUI {
             PRESET_STATUSES.map(s => h(this.doc, "option", { value: s[0] }, presetLabel(s[0], this.lang())))
           )
         ]));
-        form.appendChild(h(this.doc, "label", null, [
-          this.t("初始状态日期","Initial status date"),
-          h(this.doc, "input", { type: "date", name: "initialDate", required: true, value: today })
-        ]));
+        form.appendChild(this.dateField(this.t("初始状态日期","Initial status date"), "initialDate", today, true));
       }
 
       // Next follow-up
-      form.appendChild(h(this.doc, "label", null, [
-        this.t("下一次跟进日期","Next follow-up"),
-        h(this.doc, "input", { type: "date", name: "follow", value: existing?.nextFollowUpDate ?? "" })
-      ]));
+      form.appendChild(this.dateField(this.t("下一次跟进日期","Next follow-up"), "follow", existing?.nextFollowUpDate ?? "", false));
 
       // Notes
       form.appendChild(h(this.doc, "label", { class: "span2" }, [
@@ -494,6 +492,43 @@ export class DashboardUI {
       ]));
 
       // Dialog actions (Cancel + Save)
+      const save = async () => {
+        const submissionDate = f(form, "submissionDate");
+        if (!submissionDate) return this.alert(this.t("请填写投稿日期（yyyy-mm-dd）。", "Please enter a submission date (yyyy-mm-dd)."));
+        if (!f(form, "title")) return this.alert(this.t("请填写投稿标题。", "Please enter a manuscript title."));
+        if (!f(form, "journal")) return this.alert(this.t("请填写期刊名称。", "Please enter the journal name."));
+        const isoDay = /^\d{4}-\d{2}-\d{2}$/;
+        if (!isoDay.test(submissionDate)) return this.alert(this.t("投稿日期格式应为 yyyy-mm-dd。", "Submission date must be yyyy-mm-dd."));
+        if (existing) {
+          await this.service.updateSubmission(existing.id, {
+            zoteroItem: workingRef,
+            manuscriptTitle: f(form, "title"),
+            journalName: f(form, "journal"),
+            systemProfileId: f(form, "profile") || null,
+            manuscriptId: f(form, "manuscriptId"),
+            submissionDate,
+            nextFollowUpDate: f(form, "follow") || null,
+            notes: f(form, "notes"),
+          });
+        } else {
+          const initialDate = f(form, "initialDate") || today;
+          if (!isoDay.test(initialDate)) return this.alert(this.t("初始状态日期格式应为 yyyy-mm-dd。", "Initial status date must be yyyy-mm-dd."));
+          await this.service.createSubmission({
+            zoteroItem: workingRef,
+            manuscriptTitle: f(form, "title"),
+            journalName: f(form, "journal"),
+            systemProfileId: f(form, "profile") || null,
+            manuscriptId: f(form, "manuscriptId"),
+            submissionDate,
+            nextFollowUpDate: f(form, "follow") || null,
+            notes: f(form, "notes"),
+            initialStatusCode: f(form, "initialStatus"),
+            initialStatusDate: initialDate,
+          });
+        }
+        d.close();
+        this.render();
+      };
       form.appendChild(h(this.doc, "div", { class: "dialog-actions span2" }, [
         h(this.doc, "button", {
           type: "button",
@@ -501,9 +536,14 @@ export class DashboardUI {
         }, this.t("取消","Cancel")),
         h(this.doc, "button", {
           class: "primary",
-          type: "submit",
+          type: "button",
+          onClick: () => { void save(); },
         }, this.t("保存","Save"))
       ]));
+
+      // Enter inside a text input still triggers the form submit event,
+      // which we catch as a backup to the explicit Save click handler.
+      form.addEventListener("submit", (e) => { e.preventDefault(); void save(); });
 
       d.appendChild(form);
     });
@@ -511,24 +551,7 @@ export class DashboardUI {
 
   private showStatusForm(submission:Submission,event?:StatusEvent){
     this.dialog(event?this.t("编辑状态","Edit status"):this.t("更新状态","Update status"),(d)=>{
-      const form = h(this.doc, "form", { class: "form-grid", onSubmit: async (e) => {
-        e.preventDefault();
-        const submitted = e.target as HTMLFormElement;
-        const code = f(submitted, "code");
-        const label = code ? presetLabel(code, this.lang()) : f(submitted, "label");
-        if (!label) return this.alert(this.t("请输入自定义状态名称。","Enter a custom status label."));
-        const patch = {
-          effectiveDate: f(submitted, "date"),
-          statusType: (code ? "preset" : "custom") as "preset" | "custom",
-          statusCode: code || null,
-          statusLabel: label,
-          notes: f(submitted, "notes"),
-        };
-        if (event) await this.service.updateStatus(event.id, patch);
-        else await this.service.addStatus({ ...patch, submissionId: submission.id });
-        d.close();
-        this.render();
-      }});
+      const form = h(this.doc, "form", { class: "form-grid" });
 
       form.appendChild(h(this.doc, "label", null, [
         this.t("预设状态","Preset status"),
@@ -541,22 +564,43 @@ export class DashboardUI {
         this.t("自定义状态名称","Custom label"),
         h(this.doc, "input", { name: "label", value: event?.statusType === "custom" ? event.statusLabel : "" })
       ]));
-      form.appendChild(h(this.doc, "label", null, [
-        this.t("生效日期","Effective date"),
-        h(this.doc, "input", { type: "date", name: "date", required: true, value: event?.effectiveDate ?? localDateString() })
-      ]));
+      form.appendChild(this.dateField(this.t("生效日期","Effective date"), "date", event?.effectiveDate ?? localDateString(), true));
       form.appendChild(h(this.doc, "label", { class: "span2" }, [
         this.t("备注","Notes"),
         h(this.doc, "textarea", { name: "notes" }, event?.notes ?? "")
       ]));
+
+      const save = async () => {
+        const code = f(form, "code");
+        const labelText = code ? presetLabel(code, this.lang()) : f(form, "label");
+        if (!labelText) return this.alert(this.t("请输入自定义状态名称。","Enter a custom status label."));
+        const effectiveDate = f(form, "date");
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(effectiveDate)) return this.alert(this.t("生效日期格式应为 yyyy-mm-dd。","Effective date must be yyyy-mm-dd."));
+        const patch = {
+          effectiveDate,
+          statusType: (code ? "preset" : "custom") as "preset" | "custom",
+          statusCode: code || null,
+          statusLabel: labelText,
+          notes: f(form, "notes"),
+        };
+        if (event) await this.service.updateStatus(event.id, patch);
+        else await this.service.addStatus({ ...patch, submissionId: submission.id });
+        d.close();
+        this.render();
+      };
 
       form.appendChild(h(this.doc, "div", { class: "dialog-actions span2" }, [
         h(this.doc, "button", {
           type: "button",
           onClick: () => d.close(),
         }, this.t("取消","Cancel")),
-        h(this.doc, "button", { class: "primary", type: "submit" }, this.t("保存","Save"))
+        h(this.doc, "button", {
+          class: "primary",
+          type: "button",
+          onClick: () => { void save(); },
+        }, this.t("保存","Save"))
       ]));
+      form.addEventListener("submit", (e) => { e.preventDefault(); void save(); });
 
       d.appendChild(form);
     });
@@ -657,23 +701,7 @@ export class DashboardUI {
 
   private profileForm(p?:SystemProfile){
     this.dialog(p?this.t("编辑投稿系统","Edit system"):this.t("新建投稿系统","New system"),(d)=>{
-      const form = h(this.doc, "form", { class: "form-grid", onSubmit: async (e) => {
-        e.preventDefault();
-        const submitted = e.target as HTMLFormElement;
-        await this.service.saveProfile({
-          ...(p ? { id: p.id } : {}),
-          displayName: f(submitted, "display"),
-          journalName: f(submitted, "journal"),
-          platformName: f(submitted, "platform"),
-          loginUrl: f(submitted, "url"),
-          username: f(submitted, "username"),
-          notes: f(submitted, "notes"),
-          archived: p?.archived ?? false,
-        });
-        d.close();
-        this.render();
-        this.showProfiles();
-      }});
+      const form = h(this.doc, "form", { class: "form-grid" });
 
       form.appendChild(h(this.doc, "label", { class: "span2" }, [
         this.t("配置名称","Display name"),
@@ -701,10 +729,35 @@ export class DashboardUI {
       ]));
       form.appendChild(h(this.doc, "p", { class: "span2 muted" }, this.t("本插件不保存密码。请使用浏览器或密码管理器。","This plugin never stores passwords. Use your browser or a password manager.")));
 
+      const save = async () => {
+        if (!f(form, "display")) return this.alert(this.t("请填写配置名称。","Please enter a display name."));
+        if (!f(form, "journal")) return this.alert(this.t("请填写期刊名称。","Please enter the journal name."));
+        if (!f(form, "platform")) return this.alert(this.t("请填写平台名称。","Please enter the platform name."));
+        if (!f(form, "url")) return this.alert(this.t("请填写登录地址。","Please enter the login URL."));
+        await this.service.saveProfile({
+          ...(p ? { id: p.id } : {}),
+          displayName: f(form, "display"),
+          journalName: f(form, "journal"),
+          platformName: f(form, "platform"),
+          loginUrl: f(form, "url"),
+          username: f(form, "username"),
+          notes: f(form, "notes"),
+          archived: p?.archived ?? false,
+        });
+        d.close();
+        this.render();
+        this.showProfiles();
+      };
+
       form.appendChild(h(this.doc, "div", { class: "dialog-actions span2" }, [
         h(this.doc, "button", { type: "button", onClick: () => d.close() }, this.t("取消","Cancel")),
-        h(this.doc, "button", { class: "primary", type: "submit" }, this.t("保存","Save"))
+        h(this.doc, "button", {
+          class: "primary",
+          type: "button",
+          onClick: () => { void save(); },
+        }, this.t("保存","Save"))
       ]));
+      form.addEventListener("submit", (e) => { e.preventDefault(); void save(); });
 
       d.appendChild(form);
     });
