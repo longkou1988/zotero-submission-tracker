@@ -166,10 +166,18 @@ export function h<K extends keyof HTMLElementTagNameMap>(
   return el;
 }
 
+/**
+ * Zotero's bootstrap sandbox does not expose the `Node` global, so we detect
+ * nodes structurally via the `nodeType` property instead of `instanceof Node`.
+ */
+function isNodeLike(value: unknown): value is { nodeType: number; appendChild?: unknown } {
+  return typeof value === "object" && value !== null && typeof (value as { nodeType?: unknown }).nodeType === "number";
+}
+
 function appendChild(doc: Document, parent: Element, child: ChildSpec): void {
   if (child == null || child === false) return;
-  if (child instanceof Node) {
-    parent.appendChild(child);
+  if (isNodeLike(child)) {
+    parent.appendChild(child as Node);
     return;
   }
   if (typeof child === "string" || typeof child === "number") {

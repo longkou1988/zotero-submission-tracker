@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "Submission Tracker",
-  "version": "0.1.20",
+  "version": "0.1.21",
   "description": "Track journal submissions locally in Zotero",
   "author": "Research Tools",
   "applications": {
