@@ -3,6 +3,17 @@
     "submission-tracker@research-tools": {
       "updates": [
         {
+          "version": "0.1.24",
+          "update_link": "https://github.com/longkou1988/zotero-submission-tracker/releases/download/v0.1.24/submission-tracker-0.1.24.xpi",
+          "update_hash": "sha256:5be1c69001f35c6e8552b52cabf20ee45906524a952c71eb03bfc4e3bc1b38b1",
+          "applications": {
+            "zotero": {
+              "strict_min_version": "8.0",
+              "strict_max_version": "10.0.*"
+            }
+          }
+        },
+        {
           "version": "0.1.23",
           "update_link": "https://github.com/longkou1988/zotero-submission-tracker/releases/download/v0.1.23/submission-tracker-0.1.23.xpi",
           "update_hash": "sha256:b2e37c4110a51fde6eaad5d52be9ee6267dd6eff85443798d4e972a7ee685c81",

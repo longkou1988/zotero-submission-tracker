@@ -1,8 +1,9 @@
 import { ZoteroItemRef } from "./core/types";
 import { Services, Zotero } from "./runtime";
 
-export function regularSelectedItem(win: any): any | null {
-  const items = win?.ZoteroPane?.getSelectedItems?.() ?? [];
+export function regularSelectedItem(_win?: any): any | null {
+  const pane = Zotero.getActiveZoteroPane?.();
+  const items = pane?.getSelectedItems?.() ?? [];
   return items.length === 1 && items[0]?.isRegularItem?.() ? items[0] : null;
 }
 
@@ -30,9 +31,9 @@ export function resolveItem(ref: ZoteroItemRef): any | null {
 export async function selectItem(ref: ZoteroItemRef): Promise<boolean> {
   const item = resolveItem(ref);
   if (!item) return false;
-  const win = Services.wm.getMostRecentWindow("navigator:browser");
-  win.focus();
-  await win.ZoteroPane.selectItem(item.id);
+  const pane = Zotero.getActiveZoteroPane?.();
+  if (!pane) return false;
+  await pane.selectItem(item.id);
   return true;
 }
 

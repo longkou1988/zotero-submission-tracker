@@ -4,7 +4,7 @@ import { installRuntime, Services, Zotero } from "./runtime";
 import type { ZoteroRuntime } from "./runtime";
 
 const PLUGIN_ID = "submission-tracker@research-tools";
-const PLUGIN_VERSION = "0.1.23";
+const PLUGIN_VERSION = "0.1.24";
 let host: DashboardHost | null = null;
 const menuIDs: string[] = [];
 const TOOLS_MENU_ID = "submission-tracker-tools-menuitem";

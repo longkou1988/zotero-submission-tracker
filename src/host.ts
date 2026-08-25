@@ -50,14 +50,11 @@ export function waitForDashboardDocument(
         return true;
       }
       try {
-        // The dashboard UI lives inside an <iframe> so it runs in a real HTML
-        // document. A chrome top-level window document is not a normal HTML
-        // document, which breaks innerHTML/querySelector for HTML-namespaced
-        // nodes (#q etc.). Inspect the iframe's contentDocument instead.
-        const frame = win.document.getElementById("frame") as HTMLIFrameElement | null;
-        const document = frame?.contentDocument ?? null;
-        if (document?.getElementById("app")) {
-          finish(document);
+        // The dashboard UI is rendered directly into the chrome window
+        // document (no <iframe>). Nodes are created with createElementNS in the
+        // HTML namespace, so an HTML document is not required.
+        if (win.document?.getElementById("app")) {
+          finish(win.document);
           return true;
         }
       } catch {
@@ -118,9 +115,10 @@ export class DashboardHost {
       if (!opened) throw new Error("Zotero did not create the Submission Tracker window.");
 
       this.win = opened;
+      Zotero.debug("Submission Tracker: dashboard window opened, waiting for #app");
       opened.addEventListener("unload", () => { this.win = null; this.ui = null; }, { once: true });
       const dashboardDocument = await waitForDashboardDocument(opened);
-      // windowtype must live on the top-level window, not the iframe content document.
+      // windowtype must live on the top-level window element.
       opened.document?.documentElement?.setAttribute("windowtype", WINDOW_TYPE);
       if (!dashboardDocument.getElementById("app")) {
         throw new Error("The dashboard document loaded without its application container.");

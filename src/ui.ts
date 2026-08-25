@@ -80,18 +80,24 @@ export class DashboardUI {
 
     const btnProfiles = this.doc.createElement("button");
     btnProfiles.id = "profiles";
+    btnProfiles.type = "button";
     btnProfiles.textContent = this.t("投稿系统", "Systems");
+    btnProfiles.addEventListener("click", () => this.showProfiles());
     header.appendChild(btnProfiles);
 
     const btnSettings = this.doc.createElement("button");
     btnSettings.id = "settings";
+    btnSettings.type = "button";
     btnSettings.textContent = this.t("设置与备份", "Settings & backups");
+    btnSettings.addEventListener("click", () => this.showSettings());
     header.appendChild(btnSettings);
 
     const btnNew = this.doc.createElement("button");
     btnNew.id = "new";
+    btnNew.type = "button";
     btnNew.className = "primary";
     btnNew.textContent = "＋ " + this.t("新建投稿", "New submission");
+    btnNew.addEventListener("click", () => this.showItemChooser());
     header.appendChild(btnNew);
 
     app.appendChild(header);
@@ -336,17 +342,16 @@ export class DashboardUI {
   }
 
   private bind(root: HTMLElement) {
-    const required = <T extends Element>(selector: string): T => {
-      const element = root.querySelector<T>(selector);
-      if (!element) throw new Error(`Dashboard element is missing after render: ${selector}`);
-      return element;
-    };
+    const required = <T extends Element>(selector: string): T | null =>
+      root.querySelector<T>(selector);
     const update = (key: keyof typeof this.filters, value: string) => { this.filters[key]=value; this.render(); };
-    required<HTMLInputElement>("#q").addEventListener("input", e => update("query",(e.target as HTMLInputElement).value));
-    for (const id of ["status","profile","follow","lifecycle"] as const) required<HTMLSelectElement>(`#${id}`).addEventListener("change",e=>update(id,(e.target as HTMLSelectElement).value));
-    required<HTMLButtonElement>("#new").addEventListener("click",()=>this.showItemChooser());
-    required<HTMLButtonElement>("#profiles").addEventListener("click",()=>this.showProfiles());
-    required<HTMLButtonElement>("#settings").addEventListener("click",()=>this.showSettings());
+    required<HTMLInputElement>("#q")?.addEventListener("input", e => update("query",(e.target as HTMLInputElement).value));
+    for (const id of ["status","profile","follow","lifecycle"] as const) required<HTMLSelectElement>(`#${id}`)?.addEventListener("change",e=>update(id,(e.target as HTMLSelectElement).value));
+    // Header buttons now attach their click handlers at creation time (see
+    // render()). Re-binding them here is unnecessary and, on Zotero 10's
+    // chrome document, the post-render querySelector occasionally returned
+    // null for the freshly inserted buttons, which manifested as "click
+    // does nothing" in v0.1.23.
     root.querySelectorAll("tr[data-id]").forEach(tr=>tr.addEventListener("click",e=>this.handleRow((tr as HTMLElement).dataset.id!, (e.target as HTMLElement).closest("button")?.dataset.act)));
   }
 
