@@ -28,7 +28,7 @@ npm install
 npm run check
 ```
 
-生成文件位于 `build/submission-tracker-0.1.14.xpi`。开发、手工验收和发布方法见 [docs/TESTING.md](docs/TESTING.md) 与 [release/RELEASE_CHECKLIST.md](release/RELEASE_CHECKLIST.md)。
+生成文件位于 `build/submission-tracker-0.1.15.xpi`。开发、手工验收和发布方法见 [docs/TESTING.md](docs/TESTING.md) 与 [release/RELEASE_CHECKLIST.md](release/RELEASE_CHECKLIST.md)。
 
 ## 使用
 
@@ -50,7 +50,7 @@ npm run check
 
 ## 发布状态
 
-`0.1.14` 固定使用已经确认加载完成的看板文档，并在刚刚渲染的应用根节点内绑定控件，修复 Zotero 窗口导航期间页面对象切换导致 `querySelector(...) is null`、按钮无法绑定的问题。看板仍通过已注册的 Zotero `chrome://` 内容包打开，普通文献条目的右键入口仍使用 Zotero 正式菜单接口。源码、XPI 与自动更新清单发布在 [longkou1988/zotero-submission-tracker](https://github.com/longkou1988/zotero-submission-tracker)。在完成 macOS、Windows、Linux 以及 Zotero 8、9、10 的完整验收矩阵前，本版本不标记为稳定版。
+`0.1.15` 将动态看板和对话框先在标准 HTML 文档中解析，再导入 Zotero 特权窗口，修复搜索框 `#q` 等控件因命名空间错误而未实际生成的问题。看板仍通过已注册的 Zotero `chrome://` 内容包打开，普通文献条目的右键入口仍使用 Zotero 正式菜单接口。源码、XPI 与自动更新清单发布在 [longkou1988/zotero-submission-tracker](https://github.com/longkou1988/zotero-submission-tracker)。在完成 macOS、Windows、Linux 以及 Zotero 8、9、10 的完整验收矩阵前，本版本不标记为稳定版。
 
 另见：[隐私说明](PRIVACY.md)、[已知限制](KNOWN_LIMITATIONS.md)、[英文 README](README.en.md)、[更新日志](CHANGELOG.md)。
 

@@ -2,6 +2,7 @@ import { dashboardRows, presetLabel, timeline } from "./core/domain";
 import { exportCSV } from "./core/csv";
 import { localDateString } from "./core/date";
 import { PRESET_STATUSES, StatusEvent, Submission, SystemProfile, ZoteroItemRef } from "./core/types";
+import { createHTMLElement, replaceWithParsedHTML } from "./dom";
 import { TrackerService } from "./service";
 import { copyText, itemToRef, openURL, regularSelectedItem, resolveItem, selectItem } from "./zotero-adapter";
 import { IOUtils, Services, Zotero } from "./runtime";
@@ -55,7 +56,7 @@ export class DashboardUI {
     const profiles = this.service.data.systemProfiles;
     const app = this.doc.getElementById("app");
     if (!app) throw new Error("The dashboard application container is unavailable.");
-    app.innerHTML = `
+    const dashboardMarkup = `
       <header><h1>${this.t("投稿追踪","Submission Tracker")}</h1>
         <button id="profiles">${this.t("投稿系统","Systems")}</button><button id="settings">${this.t("设置与备份","Settings & backups")}</button>
         <button class="primary" id="new">＋ ${this.t("新建投稿","New submission")}</button></header>
@@ -66,6 +67,7 @@ export class DashboardUI {
         <select id="follow"><option value="" ${this.filters.follow===""?"selected":""}>${this.t("全部跟进","All follow-ups")}</option><option value="overdue" ${this.filters.follow==="overdue"?"selected":""}>${this.t("已逾期","Overdue")}</option><option value="today" ${this.filters.follow==="today"?"selected":""}>${this.t("今天","Today")}</option><option value="soon" ${this.filters.follow==="soon"?"selected":""}>${this.t("未来7天","Next 7 days")}</option><option value="none" ${this.filters.follow==="none"?"selected":""}>${this.t("无跟进日期","No date")}</option></select>
         <select id="lifecycle"><option value="active" ${this.filters.lifecycle==="active"?"selected":""}>${this.t("进行中","Active")}</option><option value="finished" ${this.filters.lifecycle==="finished"?"selected":""}>${this.t("已结束","Finished")}</option><option value="all" ${this.filters.lifecycle==="all"?"selected":""}>${this.t("全部","All")}</option></select></section>
       <div class="table-wrap">${rows.length ? `<table><thead><tr>${[["论文","Paper"],["期刊","Journal"],["稿件编号","Manuscript ID"],["当前状态","Current status"],["状态日期","Status date"],["持续天数","Days"],["投稿日期","Submitted"],["下一次跟进","Next follow-up"],["投稿系统","System"],["操作","Actions"]].map(x=>`<th>${this.t(x[0],x[1])}</th>`).join("")}</tr></thead><tbody>${rows.map(row=>this.row(row)).join("")}</tbody></table>` : `<div class="empty">${this.t("还没有符合条件的投稿记录。","No matching submissions.")}</div>`}</div>`;
+    replaceWithParsedHTML(this.doc, app, dashboardMarkup);
     this.bind(app);
   }
 
@@ -103,7 +105,12 @@ export class DashboardUI {
   }
 
   private dialog(title: string, body: string) {
-    const d=this.doc.createElement("dialog"); d.innerHTML=`<h2>${esc(title)}</h2>${body}`; this.doc.body.append(d); d.addEventListener("close",()=>d.remove()); d.showModal(); return d;
+    const d = createHTMLElement(this.doc, "dialog");
+    replaceWithParsedHTML(this.doc, d, `<h2>${esc(title)}</h2>${body}`);
+    this.doc.body.append(d);
+    d.addEventListener("close", () => d.remove());
+    d.showModal();
+    return d;
   }
   private alert(message:string){ const d=this.dialog(this.t("提示","Notice"),`<p>${esc(message)}</p><div class="dialog-actions"><button class="primary">OK</button></div>`); d.querySelector("button")!.addEventListener("click",()=>d.close()); }
 
