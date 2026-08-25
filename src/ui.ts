@@ -82,14 +82,18 @@ export class DashboardUI {
     btnProfiles.id = "profiles";
     btnProfiles.type = "button";
     btnProfiles.textContent = this.t("投稿系统", "Systems");
-    btnProfiles.addEventListener("click", () => this.showProfiles());
+    btnProfiles.addEventListener("click", () => {
+        try { this.showProfiles(); } catch (err) { Zotero.logError(err); this.alert(this.t("发生错误", "An error occurred")); }
+    });
     header.appendChild(btnProfiles);
 
     const btnSettings = this.doc.createElement("button");
     btnSettings.id = "settings";
     btnSettings.type = "button";
     btnSettings.textContent = this.t("设置与备份", "Settings & backups");
-    btnSettings.addEventListener("click", () => this.showSettings());
+    btnSettings.addEventListener("click", () => {
+        try { this.showSettings(); } catch (err) { Zotero.logError(err); this.alert(this.t("发生错误", "An error occurred")); }
+    });
     header.appendChild(btnSettings);
 
     const btnNew = this.doc.createElement("button");
@@ -97,7 +101,9 @@ export class DashboardUI {
     btnNew.type = "button";
     btnNew.className = "primary";
     btnNew.textContent = "＋ " + this.t("新建投稿", "New submission");
-    btnNew.addEventListener("click", () => this.showItemChooser());
+    btnNew.addEventListener("click", () => {
+        try { this.showItemChooser(); } catch (err) { Zotero.logError(err); this.alert(this.t("发生错误", "An error occurred")); }
+    });
     header.appendChild(btnNew);
 
     app.appendChild(header);
@@ -458,9 +464,17 @@ export class DashboardUI {
   }
 
   private showItemChooser(){
-    const item=regularSelectedItem(Services.wm.getMostRecentWindow("navigator:browser"));
-    if(item) this.showSubmissionForm(null,itemToRef(item));
-    else this.alert(this.t("请先在 Zotero 主窗口选择一篇普通文献，再点击新建投稿。","Select one regular item in the Zotero library, then choose New submission."));
+    try {
+      const win = Services.wm.getMostRecentWindow("navigator:browser");
+      Zotero.debug(`Submission Tracker: showItemChooser got window: ${win ? 'yes' : 'no'}`);
+      const item=regularSelectedItem(win);
+      Zotero.debug(`Submission Tracker: showItemChooser item: ${item ? 'found' : 'null'}`);
+      if(item) this.showSubmissionForm(null,itemToRef(item));
+      else this.alert(this.t("请先在 Zotero 主窗口选择一篇普通文献，再点击新建投稿。","Select one regular item in the Zotero library, then choose New submission."));
+    } catch (err) {
+      Zotero.logError(err);
+      this.alert(this.t("发生错误：", "Error: ") + (err instanceof Error ? err.message : String(err)));
+    }
   }
 
   createForItem(ref: ZoteroItemRef) { this.showSubmissionForm(null, ref); }
