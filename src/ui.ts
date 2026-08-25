@@ -9,6 +9,19 @@ import { IOUtils, Services, Zotero } from "./runtime";
 
 const f = (form: HTMLFormElement, name: string) => (new FormData(form).get(name) ?? "").toString().trim();
 
+/**
+ * A lightweight handle passed to `dialog()` builders. We deliberately avoid
+ * `<dialog>.showModal()` because Firefox's top-layer hit-testing is unreliable
+ * for an iframe-hosted document inside a Zotero chrome window — the modal
+ * panel renders, but clicks on its buttons fall through and nothing fires.
+ * A plain absolutely-positioned overlay (`<div>`) avoids the top layer
+ * entirely and is clickable everywhere.
+ */
+export interface DialogHandle {
+  appendChild(child: Node): void;
+  close(): void;
+}
+
 export class DashboardUI {
   private filters = { query:"", status:"", profile:"", follow:"", lifecycle:"active" };
   constructor(
@@ -352,16 +365,34 @@ export class DashboardUI {
    * created with `createElementNS(HTML, ...)` so that all buttons, labels
    * and form controls render correctly inside a Zotero chrome document.
    */
-  private dialog(title: string, build: (d: HTMLDialogElement) => void): HTMLDialogElement {
-    const d = createHTMLElement(this.doc, "dialog") as HTMLDialogElement;
+  private dialog(title: string, build: (d: DialogHandle) => void): void {
+    const overlay = createHTMLElement(this.doc, "div");
+    overlay.className = "st-modal-overlay";
+    const panel = createHTMLElement(this.doc, "div");
+    panel.className = "st-modal";
     const h2 = createHTMLElement(this.doc, "h2");
     h2.textContent = title;
-    d.appendChild(h2);
-    build(d);
-    this.doc.body.appendChild(d);
-    d.addEventListener("close", () => d.remove());
-    d.showModal();
-    return d;
+    panel.appendChild(h2);
+
+    const handle: DialogHandle = {
+      appendChild: (child: Node) => panel.appendChild(child),
+      close: () => overlay.remove(),
+    };
+
+    // Click on the backdrop (outside the panel) closes the modal.
+    overlay.addEventListener("click", (e) => { if (e.target === overlay) handle.close(); });
+    // ESC closes the modal.
+    overlay.addEventListener("keydown", (e) => {
+      if ((e as KeyboardEvent).key === "Escape") handle.close();
+    });
+
+    build(handle);
+
+    this.doc.body.appendChild(overlay);
+    // Move focus into the panel so keyboard users are not stranded on the
+    // backdrop, and so Enter-to-submit works immediately.
+    const first = panel.querySelector("input,select,textarea,button") as HTMLElement | null;
+    first?.focus();
   }
 
   private alert(message:string){
@@ -393,6 +424,9 @@ export class DashboardUI {
     const text = createHTMLElement(this.doc, "span");
     text.textContent = labelText;
     wrapper.appendChild(text);
+
+    const row = createHTMLElement(this.doc, "div");
+    row.className = "date-row";
     const input = createHTMLElement(this.doc, "input");
     input.type = "text";
     input.name = name;
@@ -402,7 +436,15 @@ export class DashboardUI {
     input.setAttribute("autocomplete", "off");
     if (required) input.required = true;
     input.value = value ?? "";
-    wrapper.appendChild(input);
+    row.appendChild(input);
+
+    const todayBtn = createHTMLElement(this.doc, "button");
+    todayBtn.type = "button";
+    todayBtn.textContent = this.t("今天", "Today");
+    todayBtn.addEventListener("click", () => { input.value = localDateString(); input.focus(); });
+    row.appendChild(todayBtn);
+    wrapper.appendChild(row);
+
     const hint = createHTMLElement(this.doc, "small");
     hint.className = "muted date-hint";
     hint.textContent = this.t("格式 yyyy-mm-dd；可留空", "Format yyyy-mm-dd; may be left blank.");
@@ -425,22 +467,9 @@ export class DashboardUI {
     this.dialog(existing?this.t("编辑投稿","Edit submission"):this.t("创建投稿记录","Create submission"),(d)=>{
       const form = h(this.doc, "form", { class: "form-grid" });
 
-      // Linked Zotero item
-      form.appendChild(h(this.doc, "label", { class: "span2" }, [
-        this.t("关联的 Zotero 文献","Linked Zotero item"),
-        h(this.doc, "span", { class: "inline" }, [
-          h(this.doc, "input", { "data-linked": "", value: ref.cachedTitle, disabled: true }),
-          ...(existing ? [h(this.doc, "button", {
-            type: "button",
-            onClick: () => {
-              const item=regularSelectedItem(Services.wm.getMostRecentWindow("navigator:browser"));
-              if(!item) return this.alert(this.t("请先在 Zotero 主窗口选择一篇普通文献。","Select one regular item in the Zotero library."));
-              workingRef=itemToRef(item);
-              (form.querySelector("[data-linked]") as HTMLInputElement).value = workingRef.cachedTitle;
-            }
-          }, this.t("重新关联当前所选文献","Relink selected item"))] : [])
-        ])
-      ]));
+      // Linked item — shown as a read-only context line (no extra control).
+      form.appendChild(h(this.doc, "p", { class: "linked-note muted span2" },
+        this.t("关联文献：", "Linked item: ") + ref.cachedTitle));
 
       // Manuscript title
       form.appendChild(h(this.doc, "label", { class: "span2" }, [
@@ -493,6 +522,7 @@ export class DashboardUI {
 
       // Dialog actions (Cancel + Save)
       const save = async () => {
+       try {
         const submissionDate = f(form, "submissionDate");
         if (!submissionDate) return this.alert(this.t("请填写投稿日期（yyyy-mm-dd）。", "Please enter a submission date (yyyy-mm-dd)."));
         if (!f(form, "title")) return this.alert(this.t("请填写投稿标题。", "Please enter a manuscript title."));
@@ -528,6 +558,10 @@ export class DashboardUI {
         }
         d.close();
         this.render();
+       } catch (err) {
+        Zotero.debug("Submission Tracker: save failed: " + (err instanceof Error ? err.message : String(err)));
+        this.alert(this.t("保存失败：", "Save failed: ") + (err instanceof Error ? err.message : String(err)));
+       }
       };
       form.appendChild(h(this.doc, "div", { class: "dialog-actions span2" }, [
         h(this.doc, "button", {
@@ -571,6 +605,7 @@ export class DashboardUI {
       ]));
 
       const save = async () => {
+       try {
         const code = f(form, "code");
         const labelText = code ? presetLabel(code, this.lang()) : f(form, "label");
         if (!labelText) return this.alert(this.t("请输入自定义状态名称。","Enter a custom status label."));
@@ -587,6 +622,10 @@ export class DashboardUI {
         else await this.service.addStatus({ ...patch, submissionId: submission.id });
         d.close();
         this.render();
+       } catch (err) {
+        Zotero.debug("Submission Tracker: save status failed: " + (err instanceof Error ? err.message : String(err)));
+        this.alert(this.t("保存失败：", "Save failed: ") + (err instanceof Error ? err.message : String(err)));
+       }
       };
 
       form.appendChild(h(this.doc, "div", { class: "dialog-actions span2" }, [
@@ -730,6 +769,7 @@ export class DashboardUI {
       form.appendChild(h(this.doc, "p", { class: "span2 muted" }, this.t("本插件不保存密码。请使用浏览器或密码管理器。","This plugin never stores passwords. Use your browser or a password manager.")));
 
       const save = async () => {
+       try {
         if (!f(form, "display")) return this.alert(this.t("请填写配置名称。","Please enter a display name."));
         if (!f(form, "journal")) return this.alert(this.t("请填写期刊名称。","Please enter the journal name."));
         if (!f(form, "platform")) return this.alert(this.t("请填写平台名称。","Please enter the platform name."));
@@ -747,6 +787,10 @@ export class DashboardUI {
         d.close();
         this.render();
         this.showProfiles();
+       } catch (err) {
+        Zotero.debug("Submission Tracker: save profile failed: " + (err instanceof Error ? err.message : String(err)));
+        this.alert(this.t("保存失败：", "Save failed: ") + (err instanceof Error ? err.message : String(err)));
+       }
       };
 
       form.appendChild(h(this.doc, "div", { class: "dialog-actions span2" }, [
@@ -838,5 +882,5 @@ export class DashboardUI {
 
   private async picker(mode:"open"|"save",name?:string){const fp=new Zotero.FilePicker();await fp.init(this.win,this.t(mode==="open"?"选择备份文件":"选择保存位置",mode==="open"?"Choose backup":"Choose save location"),mode==="open"?fp.modeOpen:fp.modeSave);fp.appendFilter(mode==="open"?"JSON":"JSON / CSV",mode==="open"?"*.json":"*.json;*.csv");if(name)fp.defaultString=name;const result=await fp.show();return result===fp.returnCancel?null:fp.file.path;}
   private async exportFile(name:string,content:Promise<string>){const path=await this.picker("save",name);if(!path)return;await IOUtils.writeUTF8(path,await content);this.alert(this.t("导出完成。","Export complete."));}
-  private async restoreFile(dialog:HTMLDialogElement){const path=await this.picker("open");if(!path)return;try{const raw=await IOUtils.readUTF8(path);const parsed=JSON.parse(raw);const summary=this.t(`将恢复 ${parsed.systemProfiles?.length??0} 个系统配置、${parsed.submissions?.length??0} 条投稿、${parsed.statusEvents?.length??0} 条状态事件。继续？`,`Restore ${parsed.systemProfiles?.length??0} systems, ${parsed.submissions?.length??0} submissions and ${parsed.statusEvents?.length??0} status events. Continue?`);if(!this.win.confirm(summary))return;await this.service.store.restore(raw);await this.service.init();dialog.close();this.render();this.alert(this.t("恢复完成。","Restore complete."));}catch(error){this.alert(this.t("恢复失败：","Restore failed: ")+String(error));}}
+  private async restoreFile(dialog:DialogHandle){const path=await this.picker("open");if(!path)return;try{const raw=await IOUtils.readUTF8(path);const parsed=JSON.parse(raw);const summary=this.t(`将恢复 ${parsed.systemProfiles?.length??0} 个系统配置、${parsed.submissions?.length??0} 条投稿、${parsed.statusEvents?.length??0} 条状态事件。继续？`,`Restore ${parsed.systemProfiles?.length??0} systems, ${parsed.submissions?.length??0} submissions and ${parsed.statusEvents?.length??0} status events. Continue?`);if(!this.win.confirm(summary))return;await this.service.store.restore(raw);await this.service.init();dialog.close();this.render();this.alert(this.t("恢复完成。","Restore complete."));}catch(error){this.alert(this.t("恢复失败：","Restore failed: ")+String(error));}}
 }
