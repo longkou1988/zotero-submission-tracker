@@ -56,36 +56,271 @@ export class DashboardUI {
     const profiles = this.service.data.systemProfiles;
     const app = this.doc.getElementById("app");
     if (!app) throw new Error("The dashboard application container is unavailable.");
-    const dashboardMarkup = `
-      <header><h1>${this.t("投稿追踪","Submission Tracker")}</h1>
-        <button id="profiles">${this.t("投稿系统","Systems")}</button><button id="settings">${this.t("设置与备份","Settings & backups")}</button>
-        <button class="primary" id="new">＋ ${this.t("新建投稿","New submission")}</button></header>
-      <section class="cards">${[[all.length,"投稿总数","Total"],[active,"处理中","Active"],[revision,"等待返修","Revision"],[overdue,"逾期跟进","Overdue"],[soon,"7天内跟进","Due in 7 days"]].map(c=>`<div class="card"><strong>${c[0]}</strong>${this.t(c[1] as string,c[2] as string)}</div>`).join("")}</section>
-      <section class="filters"><input id="q" value="${esc(this.filters.query)}" placeholder="${this.t("搜索标题、稿件编号、期刊","Search title, ID, journal")}">
-        <select id="status"><option value="">${this.t("全部状态","All statuses")}</option>${PRESET_STATUSES.map(s=>`<option value="${s[0]}" ${this.filters.status===s[0]?"selected":""}>${esc(presetLabel(s[0],this.lang()))}</option>`).join("")}</select>
-        <select id="profile"><option value="">${this.t("全部投稿系统","All systems")}</option>${profiles.map(p=>`<option value="${p.id}" ${this.filters.profile===p.id?"selected":""}>${esc(p.displayName)}</option>`).join("")}</select>
-        <select id="follow"><option value="" ${this.filters.follow===""?"selected":""}>${this.t("全部跟进","All follow-ups")}</option><option value="overdue" ${this.filters.follow==="overdue"?"selected":""}>${this.t("已逾期","Overdue")}</option><option value="today" ${this.filters.follow==="today"?"selected":""}>${this.t("今天","Today")}</option><option value="soon" ${this.filters.follow==="soon"?"selected":""}>${this.t("未来7天","Next 7 days")}</option><option value="none" ${this.filters.follow==="none"?"selected":""}>${this.t("无跟进日期","No date")}</option></select>
-        <select id="lifecycle"><option value="active" ${this.filters.lifecycle==="active"?"selected":""}>${this.t("进行中","Active")}</option><option value="finished" ${this.filters.lifecycle==="finished"?"selected":""}>${this.t("已结束","Finished")}</option><option value="all" ${this.filters.lifecycle==="all"?"selected":""}>${this.t("全部","All")}</option></select></section>
-      <div class="table-wrap">${rows.length ? `<table><thead><tr>${[["论文","Paper"],["期刊","Journal"],["稿件编号","Manuscript ID"],["当前状态","Current status"],["状态日期","Status date"],["持续天数","Days"],["投稿日期","Submitted"],["下一次跟进","Next follow-up"],["投稿系统","System"],["操作","Actions"]].map(x=>`<th>${this.t(x[0],x[1])}</th>`).join("")}</tr></thead><tbody>${rows.map(row=>this.row(row)).join("")}</tbody></table>` : `<div class="empty">${this.t("还没有符合条件的投稿记录。","No matching submissions.")}</div>`}</div>`;
-    // The iframe provides a standard HTML document, so innerHTML works reliably.
-    app.innerHTML = dashboardMarkup;
-    // Debug: verify #q exists in the document after innerHTML
+
+    // Build dashboard using explicit DOM methods to avoid innerHTML/namespace issues
+    app.replaceChildren(); // clear
+
+    // Header
+    const header = this.doc.createElement("header");
+    const h1 = this.doc.createElement("h1");
+    h1.textContent = this.t("投稿追踪", "Submission Tracker");
+    header.appendChild(h1);
+
+    const btnProfiles = this.doc.createElement("button");
+    btnProfiles.id = "profiles";
+    btnProfiles.textContent = this.t("投稿系统", "Systems");
+    header.appendChild(btnProfiles);
+
+    const btnSettings = this.doc.createElement("button");
+    btnSettings.id = "settings";
+    btnSettings.textContent = this.t("设置与备份", "Settings & backups");
+    header.appendChild(btnSettings);
+
+    const btnNew = this.doc.createElement("button");
+    btnNew.id = "new";
+    btnNew.className = "primary";
+    btnNew.textContent = "＋ " + this.t("新建投稿", "New submission");
+    header.appendChild(btnNew);
+
+    app.appendChild(header);
+
+    // Stats cards
+    const cardsSection = this.doc.createElement("section");
+    cardsSection.className = "cards";
+    const stats: [number, string, string][] = [
+      [all.length, "投稿总数", "Total"],
+      [active, "处理中", "Active"],
+      [revision, "等待返修", "Revision"],
+      [overdue, "逾期跟进", "Overdue"],
+      [soon, "7天内跟进", "Due in 7 days"]
+    ];
+    for (const [val, zh, en] of stats) {
+      const card = this.doc.createElement("div");
+      card.className = "card";
+      const strong = this.doc.createElement("strong");
+      strong.textContent = String(val);
+      card.appendChild(strong);
+      card.appendChild(this.doc.createTextNode(String(this.t(zh, en))));
+      cardsSection.appendChild(card);
+    }
+    app.appendChild(cardsSection);
+
+    // Filters
+    const filtersSection = this.doc.createElement("section");
+    filtersSection.className = "filters";
+
+    const inputQ = this.doc.createElement("input");
+    inputQ.id = "q";
+    inputQ.value = this.filters.query;
+    inputQ.placeholder = this.t("搜索标题、稿件编号、期刊", "Search title, ID, journal");
+    filtersSection.appendChild(inputQ);
+
+    const selStatus = this.doc.createElement("select");
+    selStatus.id = "status";
+    const optAllStatus = this.doc.createElement("option");
+    optAllStatus.value = "";
+    optAllStatus.textContent = this.t("全部状态", "All statuses");
+    selStatus.appendChild(optAllStatus);
+    for (const s of PRESET_STATUSES) {
+      const opt = this.doc.createElement("option");
+      opt.value = s[0];
+      if (this.filters.status === s[0]) opt.selected = true;
+      opt.textContent = esc(presetLabel(s[0], this.lang()));
+      selStatus.appendChild(opt);
+    }
+    filtersSection.appendChild(selStatus);
+
+    const selProfile = this.doc.createElement("select");
+    selProfile.id = "profile";
+    const optAllProfile = this.doc.createElement("option");
+    optAllProfile.value = "";
+    optAllProfile.textContent = this.t("全部投稿系统", "All systems");
+    selProfile.appendChild(optAllProfile);
+    for (const p of profiles) {
+      const opt = this.doc.createElement("option");
+      opt.value = p.id;
+      if (this.filters.profile === p.id) opt.selected = true;
+      opt.textContent = esc(p.displayName);
+      selProfile.appendChild(opt);
+    }
+    filtersSection.appendChild(selProfile);
+
+    const selFollow = this.doc.createElement("select");
+    selFollow.id = "follow";
+    const followOptions = [
+      ["", "全部跟进", "All follow-ups"],
+      ["overdue", "已逾期", "Overdue"],
+      ["today", "今天", "Today"],
+      ["soon", "未来7天", "Next 7 days"],
+      ["none", "无跟进日期", "No date"]
+    ];
+    for (const [val, zh, en] of followOptions) {
+      const opt = this.doc.createElement("option");
+      opt.value = val;
+      if (this.filters.follow === val) opt.selected = true;
+      opt.textContent = this.t(zh, en);
+      selFollow.appendChild(opt);
+    }
+    filtersSection.appendChild(selFollow);
+
+    const selLifecycle = this.doc.createElement("select");
+    selLifecycle.id = "lifecycle";
+    const lifecycleOptions = [
+      ["active", "进行中", "Active"],
+      ["finished", "已结束", "Finished"],
+      ["all", "全部", "All"]
+    ];
+    for (const [val, zh, en] of lifecycleOptions) {
+      const opt = this.doc.createElement("option");
+      opt.value = val;
+      if (this.filters.lifecycle === val) opt.selected = true;
+      opt.textContent = this.t(zh, en);
+      selLifecycle.appendChild(opt);
+    }
+    filtersSection.appendChild(selLifecycle);
+
+    app.appendChild(filtersSection);
+
+    // Table wrap
+    const tableWrap = this.doc.createElement("div");
+    tableWrap.className = "table-wrap";
+    if (rows.length) {
+      const table = this.doc.createElement("table");
+      const thead = this.doc.createElement("thead");
+      const trHead = this.doc.createElement("tr");
+      const headers = [
+        ["论文", "Paper"],
+        ["期刊", "Journal"],
+        ["稿件编号", "Manuscript ID"],
+        ["当前状态", "Current status"],
+        ["状态日期", "Status date"],
+        ["持续天数", "Days"],
+        ["投稿日期", "Submitted"],
+        ["下一次跟进", "Next follow-up"],
+        ["投稿系统", "System"],
+        ["操作", "Actions"]
+      ];
+      for (const [zh, en] of headers) {
+        const th = this.doc.createElement("th");
+        th.textContent = this.t(zh, en);
+        trHead.appendChild(th);
+      }
+      thead.appendChild(trHead);
+      table.appendChild(thead);
+
+      const tbody = this.doc.createElement("tbody");
+      for (const row of rows) {
+        tbody.appendChild(this.createRowElement(row));
+      }
+      table.appendChild(tbody);
+      tableWrap.appendChild(table);
+    } else {
+      const empty = this.doc.createElement("div");
+      empty.className = "empty";
+      empty.textContent = this.t("还没有符合条件的投稿记录。", "No matching submissions.");
+      tableWrap.appendChild(empty);
+    }
+    app.appendChild(tableWrap);
+
+    // Verify #q exists
     const qCheck = app.querySelector("#q");
     if (!qCheck) {
-      Zotero.debug("Submission Tracker DEBUG: #q missing after innerHTML. app.ownerDocument=" + app.ownerDocument + ", app.ownerDocument.URL=" + app.ownerDocument.URL + ", app.children=" + app.children.length);
-      // Try to find in the whole document
+      Zotero.debug("Submission Tracker DEBUG: #q still missing after DOM build. app.children=" + app.children.length);
       const globalQ = this.doc.querySelector("#q");
       Zotero.debug("Submission Tracker DEBUG: global #q=" + (globalQ ? "found" : "missing"));
     }
     this.bind(app);
   }
 
-  private row(row: ReturnType<typeof dashboardRows>[number]) {
+  private createRowElement(row: ReturnType<typeof dashboardRows>[number]): HTMLTableRowElement {
     const unavailable = !resolveItem(row.zoteroItem);
-    return `<tr class="${row.followUp}" data-id="${row.id}"><td><button data-act="jump" title="${unavailable?this.t("关联文献不可用","Linked item unavailable"):this.t("定位文献","Show item")}">${esc(row.manuscriptTitle)}</button>${unavailable?` <span class="badge overdue">${this.t("失联","Unavailable")}</span>`:""}</td>
-      <td>${esc(row.journalName)}</td><td>${esc(row.manuscriptId||"—")}</td><td>${esc(row.currentStatus?.statusLabel||"—")}</td><td>${esc(row.currentStatus?.effectiveDate||"—")}</td><td>${row.durationDays??"—"}</td><td>${esc(row.submissionDate)}</td>
-      <td><span class="badge ${row.followUp}">${esc(row.nextFollowUpDate||this.t("暂无安排","None"))}</span></td><td>${row.profile?`<button data-act="open">${this.t("打开系统","Open")}</button>`:"—"}</td>
-      <td class="actions"><button data-act="detail">${this.t("详情","Details")}</button><button data-act="status">${this.t("更新状态","Status")}</button><button data-act="edit">${this.t("编辑","Edit")}</button><button data-act="archive">${row.archived?this.t("恢复","Restore"):this.t("归档","Archive")}</button></td></tr>`;
+    const tr = this.doc.createElement("tr");
+    tr.className = row.followUp;
+    tr.dataset.id = row.id;
+
+    // Cell 0: Paper title with jump button
+    const td0 = this.doc.createElement("td");
+    const btnJump = this.doc.createElement("button");
+    btnJump.dataset.act = "jump";
+    btnJump.title = unavailable ? this.t("关联文献不可用", "Linked item unavailable") : this.t("定位文献", "Show item");
+    btnJump.textContent = esc(row.manuscriptTitle);
+    td0.appendChild(btnJump);
+    if (unavailable) {
+      const badge = this.doc.createElement("span");
+      badge.className = "badge overdue";
+      badge.textContent = this.t("失联", "Unavailable");
+      td0.appendChild(badge);
+    }
+    tr.appendChild(td0);
+
+    // Cell 1: Journal
+    const td1 = this.doc.createElement("td");
+    td1.textContent = esc(row.journalName);
+    tr.appendChild(td1);
+
+    // Cell 2: Manuscript ID
+    const td2 = this.doc.createElement("td");
+    td2.textContent = esc(row.manuscriptId || "—");
+    tr.appendChild(td2);
+
+    // Cell 3: Current status
+    const td3 = this.doc.createElement("td");
+    td3.textContent = esc(row.currentStatus?.statusLabel || "—");
+    tr.appendChild(td3);
+
+    // Cell 4: Status date
+    const td4 = this.doc.createElement("td");
+    td4.textContent = esc(row.currentStatus?.effectiveDate || "—");
+    tr.appendChild(td4);
+
+    // Cell 5: Days
+    const td5 = this.doc.createElement("td");
+    td5.textContent = row.durationDays != null ? String(row.durationDays) : "—";
+    tr.appendChild(td5);
+
+    // Cell 6: Submission date
+    const td6 = this.doc.createElement("td");
+    td6.textContent = esc(row.submissionDate);
+    tr.appendChild(td6);
+
+    // Cell 7: Next follow-up
+    const td7 = this.doc.createElement("td");
+    const badgeFollow = this.doc.createElement("span");
+    badgeFollow.className = "badge " + row.followUp;
+    badgeFollow.textContent = esc(row.nextFollowUpDate || this.t("暂无安排", "None"));
+    td7.appendChild(badgeFollow);
+    tr.appendChild(td7);
+
+    // Cell 8: System
+    const td8 = this.doc.createElement("td");
+    if (row.profile) {
+      const btnOpen = this.doc.createElement("button");
+      btnOpen.dataset.act = "open";
+      btnOpen.textContent = this.t("打开系统", "Open");
+      td8.appendChild(btnOpen);
+    } else {
+      td8.textContent = "—";
+    }
+    tr.appendChild(td8);
+
+    // Cell 9: Actions
+    const td9 = this.doc.createElement("td");
+    td9.className = "actions";
+    const actions = [
+      ["detail", "详情", "Details"],
+      ["status", "更新状态", "Status"],
+      ["edit", "编辑", "Edit"],
+      ["archive", row.archived ? this.t("恢复", "Restore") : this.t("归档", "Archive")]
+    ];
+    for (const [act, zh, en] of actions) {
+      const btn = this.doc.createElement("button");
+      btn.dataset.act = act;
+      btn.textContent = this.t(zh, en);
+      td9.appendChild(btn);
+    }
+    tr.appendChild(td9);
+
+    return tr;
   }
 
   private bind(root: HTMLElement) {

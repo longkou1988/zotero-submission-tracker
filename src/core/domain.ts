@@ -1,7 +1,7 @@
 import { calendarDaysBetween, followUpBucket, localDateString } from "./date";
 import { PRESET_STATUSES, StatusEvent, Submission, SystemProfile, TERMINAL_CODES, TrackerData } from "./types";
 
-export const emptyData = (pluginVersion = "0.1.18"): TrackerData => ({
+export const emptyData = (pluginVersion = "0.1.19"): TrackerData => ({
   schemaVersion: 1,
   pluginVersion,
   systemProfiles: [],
