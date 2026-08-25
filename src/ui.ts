@@ -11,8 +11,12 @@ const f = (form: HTMLFormElement, name: string) => (new FormData(form).get(name)
 
 export class DashboardUI {
   private filters = { query:"", status:"", profile:"", follow:"", lifecycle:"active" };
-  constructor(private win: Window, private service: TrackerService, private initialItem: ZoteroItemRef | null = null) {}
-  get doc() { return this.win.document; }
+  constructor(
+    private win: Window,
+    private service: TrackerService,
+    private initialItem: ZoteroItemRef | null = null,
+    private readonly doc: Document = win.document,
+  ) {}
   lang(): "zh-CN" | "en-US" {
     if (this.service.settings.language !== "auto") return this.service.settings.language;
     return (Zotero.locale || "en-US").toLowerCase().startsWith("zh") ? "zh-CN" : "en-US";
@@ -49,7 +53,9 @@ export class DashboardUI {
     const overdue = all.filter(r => r.followUp === "overdue" && !r.archived).length;
     const soon = all.filter(r => ["today","soon"].includes(r.followUp) && !r.archived).length;
     const profiles = this.service.data.systemProfiles;
-    this.doc.getElementById("app")!.innerHTML = `
+    const app = this.doc.getElementById("app");
+    if (!app) throw new Error("The dashboard application container is unavailable.");
+    app.innerHTML = `
       <header><h1>${this.t("投稿追踪","Submission Tracker")}</h1>
         <button id="profiles">${this.t("投稿系统","Systems")}</button><button id="settings">${this.t("设置与备份","Settings & backups")}</button>
         <button class="primary" id="new">＋ ${this.t("新建投稿","New submission")}</button></header>
@@ -60,7 +66,7 @@ export class DashboardUI {
         <select id="follow"><option value="" ${this.filters.follow===""?"selected":""}>${this.t("全部跟进","All follow-ups")}</option><option value="overdue" ${this.filters.follow==="overdue"?"selected":""}>${this.t("已逾期","Overdue")}</option><option value="today" ${this.filters.follow==="today"?"selected":""}>${this.t("今天","Today")}</option><option value="soon" ${this.filters.follow==="soon"?"selected":""}>${this.t("未来7天","Next 7 days")}</option><option value="none" ${this.filters.follow==="none"?"selected":""}>${this.t("无跟进日期","No date")}</option></select>
         <select id="lifecycle"><option value="active" ${this.filters.lifecycle==="active"?"selected":""}>${this.t("进行中","Active")}</option><option value="finished" ${this.filters.lifecycle==="finished"?"selected":""}>${this.t("已结束","Finished")}</option><option value="all" ${this.filters.lifecycle==="all"?"selected":""}>${this.t("全部","All")}</option></select></section>
       <div class="table-wrap">${rows.length ? `<table><thead><tr>${[["论文","Paper"],["期刊","Journal"],["稿件编号","Manuscript ID"],["当前状态","Current status"],["状态日期","Status date"],["持续天数","Days"],["投稿日期","Submitted"],["下一次跟进","Next follow-up"],["投稿系统","System"],["操作","Actions"]].map(x=>`<th>${this.t(x[0],x[1])}</th>`).join("")}</tr></thead><tbody>${rows.map(row=>this.row(row)).join("")}</tbody></table>` : `<div class="empty">${this.t("还没有符合条件的投稿记录。","No matching submissions.")}</div>`}</div>`;
-    this.bind();
+    this.bind(app);
   }
 
   private row(row: ReturnType<typeof dashboardRows>[number]) {
@@ -71,14 +77,19 @@ export class DashboardUI {
       <td class="actions"><button data-act="detail">${this.t("详情","Details")}</button><button data-act="status">${this.t("更新状态","Status")}</button><button data-act="edit">${this.t("编辑","Edit")}</button><button data-act="archive">${row.archived?this.t("恢复","Restore"):this.t("归档","Archive")}</button></td></tr>`;
   }
 
-  private bind() {
+  private bind(root: HTMLElement) {
+    const required = <T extends Element>(selector: string): T => {
+      const element = root.querySelector<T>(selector);
+      if (!element) throw new Error(`Dashboard element is missing after render: ${selector}`);
+      return element;
+    };
     const update = (key: keyof typeof this.filters, value: string) => { this.filters[key]=value; this.render(); };
-    this.doc.querySelector<HTMLInputElement>("#q")!.oninput = e => update("query",(e.target as HTMLInputElement).value);
-    for (const id of ["status","profile","follow","lifecycle"] as const) this.doc.querySelector<HTMLSelectElement>(`#${id}`)!.onchange=e=>update(id,(e.target as HTMLSelectElement).value);
-    this.doc.querySelector("#new")!.addEventListener("click",()=>this.showItemChooser());
-    this.doc.querySelector("#profiles")!.addEventListener("click",()=>this.showProfiles());
-    this.doc.querySelector("#settings")!.addEventListener("click",()=>this.showSettings());
-    this.doc.querySelectorAll("tr[data-id]").forEach(tr=>tr.addEventListener("click",e=>this.handleRow((tr as HTMLElement).dataset.id!, (e.target as HTMLElement).closest("button")?.dataset.act)));
+    required<HTMLInputElement>("#q").addEventListener("input", e => update("query",(e.target as HTMLInputElement).value));
+    for (const id of ["status","profile","follow","lifecycle"] as const) required<HTMLSelectElement>(`#${id}`).addEventListener("change",e=>update(id,(e.target as HTMLSelectElement).value));
+    required<HTMLButtonElement>("#new").addEventListener("click",()=>this.showItemChooser());
+    required<HTMLButtonElement>("#profiles").addEventListener("click",()=>this.showProfiles());
+    required<HTMLButtonElement>("#settings").addEventListener("click",()=>this.showSettings());
+    root.querySelectorAll("tr[data-id]").forEach(tr=>tr.addEventListener("click",e=>this.handleRow((tr as HTMLElement).dataset.id!, (e.target as HTMLElement).closest("button")?.dataset.act)));
   }
 
   private async handleRow(id: string, act?: string) {
@@ -94,7 +105,7 @@ export class DashboardUI {
   private dialog(title: string, body: string) {
     const d=this.doc.createElement("dialog"); d.innerHTML=`<h2>${esc(title)}</h2>${body}`; this.doc.body.append(d); d.addEventListener("close",()=>d.remove()); d.showModal(); return d;
   }
-  private alert(message:string){ const d=this.dialog(this.t("提示","Notice"),`<p>${esc(message)}</p><div class="dialog-actions"><button class="primary">OK</button></div>`); d.querySelector("button")!.onclick=()=>d.close(); }
+  private alert(message:string){ const d=this.dialog(this.t("提示","Notice"),`<p>${esc(message)}</p><div class="dialog-actions"><button class="primary">OK</button></div>`); d.querySelector("button")!.addEventListener("click",()=>d.close()); }
 
   private showItemChooser(){
     const item=regularSelectedItem(Services.wm.getMostRecentWindow("navigator:browser"));
@@ -118,38 +129,38 @@ export class DashboardUI {
       <label>${this.t("下一次跟进日期","Next follow-up")}<input type="date" name="follow" value="${esc(existing?.nextFollowUpDate??"")}"></label>
       <label class="span2">${this.t("备注","Notes")}<textarea name="notes" rows="3">${esc(existing?.notes??"")}</textarea></label>
       <div class="dialog-actions span2"><button type="button" data-close>${this.t("取消","Cancel")}</button><button class="primary">${this.t("保存","Save")}</button></div></form>`);
-    d.querySelector<HTMLElement>("[data-close]")!.onclick=()=>d.close();
-    const relink=d.querySelector<HTMLElement>("[data-relink]"); if(relink)relink.onclick=()=>{const item=regularSelectedItem(Services.wm.getMostRecentWindow("navigator:browser"));if(!item)return this.alert(this.t("请先在 Zotero 主窗口选择一篇普通文献。","Select one regular item in the Zotero library."));workingRef=itemToRef(item);d.querySelector<HTMLInputElement>("[data-linked]")!.value=workingRef.cachedTitle;};
-    d.querySelector("form")!.onsubmit=async e=>{e.preventDefault();const form=e.target as HTMLFormElement;
+    d.querySelector<HTMLElement>("[data-close]")!.addEventListener("click",()=>d.close());
+    const relink=d.querySelector<HTMLElement>("[data-relink]"); if(relink)relink.addEventListener("click",()=>{const item=regularSelectedItem(Services.wm.getMostRecentWindow("navigator:browser"));if(!item)return this.alert(this.t("请先在 Zotero 主窗口选择一篇普通文献。","Select one regular item in the Zotero library."));workingRef=itemToRef(item);d.querySelector<HTMLInputElement>("[data-linked]")!.value=workingRef.cachedTitle;});
+    d.querySelector("form")!.addEventListener("submit",async e=>{e.preventDefault();const form=e.target as HTMLFormElement;
       if(existing) await this.service.updateSubmission(existing.id,{zoteroItem:workingRef,manuscriptTitle:f(form,"title"),journalName:f(form,"journal"),systemProfileId:f(form,"profile")||null,manuscriptId:f(form,"manuscriptId"),submissionDate:f(form,"submissionDate"),nextFollowUpDate:f(form,"follow")||null,notes:f(form,"notes")});
       else await this.service.createSubmission({zoteroItem:workingRef,manuscriptTitle:f(form,"title"),journalName:f(form,"journal"),systemProfileId:f(form,"profile")||null,manuscriptId:f(form,"manuscriptId"),submissionDate:f(form,"submissionDate"),nextFollowUpDate:f(form,"follow")||null,notes:f(form,"notes"),initialStatusCode:f(form,"initialStatus"),initialStatusDate:f(form,"initialDate")});
-      d.close();this.render();};
+      d.close();this.render();});
   }
 
   private showStatusForm(submission:Submission,event?:StatusEvent){
     const d=this.dialog(event?this.t("编辑状态","Edit status"):this.t("更新状态","Update status"),`<form class="form-grid"><label>${this.t("预设状态","Preset status")}<select name="code"><option value="">${this.t("自定义","Custom")}</option>${PRESET_STATUSES.map(s=>`<option value="${s[0]}" ${event?.statusCode===s[0]?"selected":""}>${esc(presetLabel(s[0],this.lang()))}</option>`).join("")}</select></label><label>${this.t("自定义状态名称","Custom label")}<input name="label" value="${esc(event?.statusType==="custom"?event.statusLabel:"")}"></label><label>${this.t("生效日期","Effective date")}<input type="date" name="date" required value="${event?.effectiveDate??localDateString()}"></label><label class="span2">${this.t("备注","Notes")}<textarea name="notes">${esc(event?.notes??"")}</textarea></label><div class="dialog-actions span2"><button type="button" data-close>${this.t("取消","Cancel")}</button><button class="primary">${this.t("保存","Save")}</button></div></form>`);
-    d.querySelector<HTMLElement>("[data-close]")!.onclick=()=>d.close(); d.querySelector("form")!.onsubmit=async e=>{e.preventDefault();const form=e.target as HTMLFormElement,code=f(form,"code"),label=code?presetLabel(code,this.lang()):f(form,"label");if(!label)return this.alert(this.t("请输入自定义状态名称。","Enter a custom status label."));const patch={effectiveDate:f(form,"date"),statusType:(code?"preset":"custom") as "preset"|"custom",statusCode:code||null,statusLabel:label,notes:f(form,"notes")};if(event)await this.service.updateStatus(event.id,patch);else await this.service.addStatus({...patch,submissionId:submission.id});d.close();this.render();};
+    d.querySelector<HTMLElement>("[data-close]")!.addEventListener("click",()=>d.close()); d.querySelector("form")!.addEventListener("submit",async e=>{e.preventDefault();const form=e.target as HTMLFormElement,code=f(form,"code"),label=code?presetLabel(code,this.lang()):f(form,"label");if(!label)return this.alert(this.t("请输入自定义状态名称。","Enter a custom status label."));const patch={effectiveDate:f(form,"date"),statusType:(code?"preset":"custom") as "preset"|"custom",statusCode:code||null,statusLabel:label,notes:f(form,"notes")};if(event)await this.service.updateStatus(event.id,patch);else await this.service.addStatus({...patch,submissionId:submission.id});d.close();this.render();});
   }
 
   private showDetails(submission:Submission){
     const events=timeline(this.service.data.statusEvents.filter(e=>e.submissionId===submission.id)); const profile=this.service.data.systemProfiles.find(p=>p.id===submission.systemProfileId);
     const d=this.dialog(submission.manuscriptTitle,`<p><b>${this.t("期刊","Journal")}:</b> ${esc(submission.journalName)}　<b>${this.t("稿件编号","ID")}:</b> ${esc(submission.manuscriptId||"—")}</p>${profile?`<p><b>${this.t("投稿系统","System")}:</b> ${esc(profile.displayName)} <button id="copy-user">${this.t("复制用户名","Copy username")}</button></p>`:""}<h3>${this.t("状态时间线","Status timeline")}</h3><ol class="timeline">${events.map(e=>`<li data-event="${e.id}"><b>${esc(e.effectiveDate)}　${esc(e.statusLabel)}</b><br><small>${esc(e.notes)}</small><br><button data-edit>${this.t("编辑","Edit")}</button> <button class="danger" data-delete>${this.t("删除","Delete")}</button></li>`).join("")}</ol><div class="dialog-actions"><button class="primary" data-close>${this.t("关闭","Close")}</button></div>`);
-    d.querySelector<HTMLElement>("[data-close]")!.onclick=()=>d.close(); if(profile)d.querySelector<HTMLElement>("#copy-user")!.onclick=()=>copyText(profile.username);
-    d.querySelectorAll<HTMLElement>("li[data-event]").forEach(li=>{const event=events.find(e=>e.id===li.dataset.event)!;li.querySelector<HTMLElement>("[data-edit]")!.onclick=()=>{d.close();this.showStatusForm(submission,event)};li.querySelector<HTMLElement>("[data-delete]")!.onclick=async()=>{if(!this.win.confirm(this.t("确定删除这条状态事件？","Delete this status event?")))return;try{await this.service.deleteStatus(event.id);d.close();this.render();}catch(err){this.alert(String(err));}};});
+    d.querySelector<HTMLElement>("[data-close]")!.addEventListener("click",()=>d.close()); if(profile)d.querySelector<HTMLElement>("#copy-user")!.addEventListener("click",()=>copyText(profile.username));
+    d.querySelectorAll<HTMLElement>("li[data-event]").forEach(li=>{const event=events.find(e=>e.id===li.dataset.event)!;li.querySelector<HTMLElement>("[data-edit]")!.addEventListener("click",()=>{d.close();this.showStatusForm(submission,event)});li.querySelector<HTMLElement>("[data-delete]")!.addEventListener("click",async()=>{if(!this.win.confirm(this.t("确定删除这条状态事件？","Delete this status event?")))return;try{await this.service.deleteStatus(event.id);d.close();this.render();}catch(err){this.alert(String(err));}});});
   }
 
   private showProfiles(){
     const d=this.dialog(this.t("投稿系统配置","Submission systems"),`<div id="profile-list">${this.service.data.systemProfiles.map(p=>`<p><b>${esc(p.displayName)}</b> · ${esc(p.platformName)} ${p.archived?`<span class="muted">(${this.t("已归档","Archived")})</span>`:""}<br><small>${esc(p.loginUrl)} · ${esc(p.username)}</small><br><button data-edit="${p.id}">${this.t("编辑","Edit")}</button> ${!p.archived?`<button data-archive="${p.id}">${this.t("归档","Archive")}</button>`:""}</p>`).join("")||`<p class="muted">${this.t("尚无配置","No profiles")}</p>`}</div><div class="dialog-actions"><button data-new>${this.t("新建配置","New profile")}</button><button class="primary" data-close>${this.t("关闭","Close")}</button></div>`);
-    d.querySelector<HTMLElement>("[data-close]")!.onclick=()=>d.close();d.querySelector<HTMLElement>("[data-new]")!.onclick=()=>{d.close();this.profileForm()};d.querySelectorAll<HTMLElement>("[data-edit]").forEach(b=>b.onclick=()=>{d.close();this.profileForm(this.service.data.systemProfiles.find(p=>p.id===b.dataset.edit))});d.querySelectorAll<HTMLElement>("[data-archive]").forEach(b=>b.onclick=async()=>{await this.service.archiveProfile(b.dataset.archive!);d.close();this.render();this.showProfiles()});
+    d.querySelector<HTMLElement>("[data-close]")!.addEventListener("click",()=>d.close());d.querySelector<HTMLElement>("[data-new]")!.addEventListener("click",()=>{d.close();this.profileForm()});d.querySelectorAll<HTMLElement>("[data-edit]").forEach(b=>b.addEventListener("click",()=>{d.close();this.profileForm(this.service.data.systemProfiles.find(p=>p.id===b.dataset.edit))}));d.querySelectorAll<HTMLElement>("[data-archive]").forEach(b=>b.addEventListener("click",async()=>{await this.service.archiveProfile(b.dataset.archive!);d.close();this.render();this.showProfiles()}));
   }
 
   private profileForm(p?:SystemProfile){
-    const d=this.dialog(p?this.t("编辑投稿系统","Edit system"):this.t("新建投稿系统","New system"),`<form class="form-grid"><label class="span2">${this.t("配置名称","Display name")}<input required name="display" value="${esc(p?.displayName??"")}"></label><label>${this.t("期刊名称","Journal")}<input required name="journal" value="${esc(p?.journalName??"")}"></label><label>${this.t("平台名称","Platform")}<input required name="platform" value="${esc(p?.platformName??"")}"></label><label class="span2">${this.t("登录地址","Login URL")}<input type="url" required name="url" value="${esc(p?.loginUrl??"")}"></label><label class="span2">${this.t("用户名或登录邮箱","Username or email")}<input name="username" value="${esc(p?.username??"")}"></label><label class="span2">${this.t("备注","Notes")}<textarea name="notes">${esc(p?.notes??"")}</textarea></label><p class="span2 muted">${this.t("本插件不保存密码。请使用浏览器或密码管理器。","This plugin never stores passwords. Use your browser or a password manager.")}</p><div class="dialog-actions span2"><button type="button" data-close>${this.t("取消","Cancel")}</button><button class="primary">${this.t("保存","Save")}</button></div></form>`);d.querySelector<HTMLElement>("[data-close]")!.onclick=()=>d.close();d.querySelector("form")!.onsubmit=async e=>{e.preventDefault();const form=e.target as HTMLFormElement;await this.service.saveProfile({...(p?{id:p.id}:{}),displayName:f(form,"display"),journalName:f(form,"journal"),platformName:f(form,"platform"),loginUrl:f(form,"url"),username:f(form,"username"),notes:f(form,"notes"),archived:p?.archived??false});d.close();this.render();this.showProfiles();};
+    const d=this.dialog(p?this.t("编辑投稿系统","Edit system"):this.t("新建投稿系统","New system"),`<form class="form-grid"><label class="span2">${this.t("配置名称","Display name")}<input required name="display" value="${esc(p?.displayName??"")}"></label><label>${this.t("期刊名称","Journal")}<input required name="journal" value="${esc(p?.journalName??"")}"></label><label>${this.t("平台名称","Platform")}<input required name="platform" value="${esc(p?.platformName??"")}"></label><label class="span2">${this.t("登录地址","Login URL")}<input type="url" required name="url" value="${esc(p?.loginUrl??"")}"></label><label class="span2">${this.t("用户名或登录邮箱","Username or email")}<input name="username" value="${esc(p?.username??"")}"></label><label class="span2">${this.t("备注","Notes")}<textarea name="notes">${esc(p?.notes??"")}</textarea></label><p class="span2 muted">${this.t("本插件不保存密码。请使用浏览器或密码管理器。","This plugin never stores passwords. Use your browser or a password manager.")}</p><div class="dialog-actions span2"><button type="button" data-close>${this.t("取消","Cancel")}</button><button class="primary">${this.t("保存","Save")}</button></div></form>`);d.querySelector<HTMLElement>("[data-close]")!.addEventListener("click",()=>d.close());d.querySelector("form")!.addEventListener("submit",async e=>{e.preventDefault();const form=e.target as HTMLFormElement;await this.service.saveProfile({...(p?{id:p.id}:{}),displayName:f(form,"display"),journalName:f(form,"journal"),platformName:f(form,"platform"),loginUrl:f(form,"url"),username:f(form,"username"),notes:f(form,"notes"),archived:p?.archived??false});d.close();this.render();this.showProfiles();});
   }
 
   private showSettings(){
     const s=this.service.settings;const d=this.dialog(this.t("设置与备份","Settings & backups"),`<form><label>${this.t("语言","Language")}<select name="language"><option value="auto" ${s.language==="auto"?"selected":""}>${this.t("跟随 Zotero","Follow Zotero")}</option><option value="zh-CN" ${s.language==="zh-CN"?"selected":""}>简体中文</option><option value="en-US" ${s.language==="en-US"?"selected":""}>English</option></select></label><label><span><input type="checkbox" name="copy" ${s.copyUsernameOnOpen?"checked":""}> ${this.t("打开投稿系统时同时复制用户名","Copy username when opening a system")}</span></label></form><hr><p>${this.t("完整 JSON 备份包含用户名和登录地址，但不包含任何密码。","A full JSON backup includes usernames and login addresses, but no passwords.")}</p><div class="actions"><button data-export-json>${this.t("导出完整 JSON","Export full JSON")}</button><button data-restore>${this.t("恢复 JSON","Restore JSON")}</button><button data-export-csv>${this.t("导出 CSV","Export CSV")}</button></div><hr><button class="danger" data-clear>${this.t("删除全部本地投稿数据","Delete all local data")}</button><div class="dialog-actions"><button class="primary" data-close>${this.t("关闭","Close")}</button></div>`);
-    d.querySelector<HTMLSelectElement>("[name=language]")!.onchange=async e=>{this.service.settings.language=(e.target as HTMLSelectElement).value as any;await this.service.store.saveSettings(this.service.settings);d.close();this.render();};d.querySelector<HTMLInputElement>("[name=copy]")!.onchange=async e=>{this.service.settings.copyUsernameOnOpen=(e.target as HTMLInputElement).checked;await this.service.store.saveSettings(this.service.settings);};d.querySelector<HTMLElement>("[data-close]")!.onclick=()=>d.close();d.querySelector<HTMLElement>("[data-export-json]")!.onclick=()=>this.exportFile("submission-tracker-backup.json",this.service.store.exportBackup(this.service.data));d.querySelector<HTMLElement>("[data-export-csv]")!.onclick=()=>this.exportFile("submission-tracker.csv",Promise.resolve(exportCSV(this.service.data)));d.querySelector<HTMLElement>("[data-restore]")!.onclick=()=>this.restoreFile(d);d.querySelector<HTMLElement>("[data-clear]")!.onclick=async()=>{if(!this.win.confirm(this.t("请先备份。确定删除全部投稿数据？此操作会保留一份 .bak。","Back up first. Delete all submission data? A .bak copy will be retained."))||!this.win.confirm(this.t("再次确认：删除全部本地投稿数据。","Confirm again: delete all local submission data.")))return;await this.service.store.clear();await this.service.init();d.close();this.render();};
+    d.querySelector<HTMLSelectElement>("[name=language]")!.addEventListener("change",async e=>{this.service.settings.language=(e.target as HTMLSelectElement).value as any;await this.service.store.saveSettings(this.service.settings);d.close();this.render();});d.querySelector<HTMLInputElement>("[name=copy]")!.addEventListener("change",async e=>{this.service.settings.copyUsernameOnOpen=(e.target as HTMLInputElement).checked;await this.service.store.saveSettings(this.service.settings);});d.querySelector<HTMLElement>("[data-close]")!.addEventListener("click",()=>d.close());d.querySelector<HTMLElement>("[data-export-json]")!.addEventListener("click",()=>this.exportFile("submission-tracker-backup.json",this.service.store.exportBackup(this.service.data)));d.querySelector<HTMLElement>("[data-export-csv]")!.addEventListener("click",()=>this.exportFile("submission-tracker.csv",Promise.resolve(exportCSV(this.service.data))));d.querySelector<HTMLElement>("[data-restore]")!.addEventListener("click",()=>this.restoreFile(d));d.querySelector<HTMLElement>("[data-clear]")!.addEventListener("click",async()=>{if(!this.win.confirm(this.t("请先备份。确定删除全部投稿数据？此操作会保留一份 .bak。","Back up first. Delete all submission data? A .bak copy will be retained."))||!this.win.confirm(this.t("再次确认：删除全部本地投稿数据。","Confirm again: delete all local submission data.")))return;await this.service.store.clear();await this.service.init();d.close();this.render();});
   }
 
   private async picker(mode:"open"|"save",name?:string){const fp=new Zotero.FilePicker();await fp.init(this.win,this.t(mode==="open"?"选择备份文件":"选择保存位置",mode==="open"?"Choose backup":"Choose save location"),mode==="open"?fp.modeOpen:fp.modeSave);fp.appendFilter(mode==="open"?"JSON":"JSON / CSV",mode==="open"?"*.json":"*.json;*.csv");if(name)fp.defaultString=name;const result=await fp.show();return result===fp.returnCancel?null:fp.file.path;}

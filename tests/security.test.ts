@@ -15,7 +15,7 @@ describe("security boundaries", () => {
   });
 
   it("has no password form controls, network clients, or SQLite writes", () => {
-    const ui = read("src/ui.ts") + read("addon/content/dashboard.xhtml");
+    const ui = read("src/ui.ts") + read("addon/content/dashboard.html");
     expect(ui).not.toMatch(/type=["']password["']/i);
     const runtime = sourceText("src") + sourceText("addon");
     expect(runtime).not.toMatch(/\bfetch\s*\(|XMLHttpRequest|WebSocket|zotero\.sqlite/i);
@@ -29,15 +29,26 @@ describe("security boundaries", () => {
     }
   });
 
-  it("passes Zotero globals explicitly into ESM and provides menu label fallbacks", () => {
+  it("passes Zotero-provided bootstrap globals into ESM and provides menu label fallbacks", () => {
     const startup = read("src/main.ts");
     const bootstrap = read("addon/bootstrap.js");
     expect(startup).not.toContain("registerPluginLocalization");
-    expect(startup.match(/Zotero\.MenuManager\.registerMenu/g)).toHaveLength(2);
-    expect(bootstrap).toContain("Services: RuntimeServices");
-    expect(bootstrap).toContain("IOUtils: RuntimeIOUtils");
-    expect(bootstrap).toContain("PathUtils: RuntimePathUtils");
-    expect(bootstrap).toContain("Components,");
+    expect(startup.match(/^  registerMenu\(\{$/gm)).toHaveLength(1);
+    expect(startup).toContain("function installToolsMenu");
+    expect(bootstrap).toContain("function onMainWindowLoad");
+    expect(bootstrap).toContain("function onMainWindowUnload");
+    expect(startup).toContain("if (!menuID) throw new Error");
+    expect(bootstrap).not.toMatch(/resource:\/\/gre\/modules\/(Services|IOUtils|PathUtils)\.sys\.mjs/);
+    expect(bootstrap).toContain("{ Zotero, Services, IOUtils, PathUtils }");
+    expect(bootstrap).toContain("Zotero.logError(error)");
     expect(startup).toContain('setAttribute("label"');
+    expect(startup).not.toContain("l10nID:");
+  });
+
+  it("uses event listeners instead of cross-window handler properties", () => {
+    const ui = read("src/ui.ts");
+    expect(ui).not.toMatch(/\.(?:oninput|onchange|onclick|onsubmit)\s*=/);
+    expect(ui).toContain('addEventListener("input"');
+    expect(ui).toContain('addEventListener("submit"');
   });
 });

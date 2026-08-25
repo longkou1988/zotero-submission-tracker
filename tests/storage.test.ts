@@ -25,8 +25,7 @@ beforeEach(() => {
     PathUtils: { join: (...parts: string[]) => parts.join("/") },
     Zotero: { logError: vi.fn() },
     IOUtils,
-    Services: {},
-    Components: {}
+    Services: {}
   });
 });
 

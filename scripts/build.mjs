@@ -9,6 +9,9 @@ const buildDir = resolve(root, "build");
 const stage = resolve(buildDir, "staging");
 const packageJson = JSON.parse(await readFile(resolve(root, "package.json"), "utf8"));
 const manifest = JSON.parse(await readFile(resolve(root, "addon/manifest.json"), "utf8"));
+const bootstrap = await readFile(resolve(root, "addon/bootstrap.js"), "utf8");
+const dashboard = await readFile(resolve(root, "addon/content/dashboard.html"), "utf8");
+const hostSource = await readFile(resolve(root, "src/host.ts"), "utf8");
 
 if (manifest.version !== packageJson.version) {
   throw new Error(`Version mismatch: package.json=${packageJson.version}, manifest.json=${manifest.version}`);
@@ -16,6 +19,24 @@ if (manifest.version !== packageJson.version) {
 const zotero = manifest.applications?.zotero;
 if (!zotero?.id || !zotero.update_url || !zotero.strict_min_version || !zotero.strict_max_version) {
   throw new Error("manifest.json must define applications.zotero with id, update_url, strict_min_version, and strict_max_version");
+}
+if (!bootstrap.includes('["content", "submission-tracker", `${rootURI}content/`]')) {
+  throw new Error("bootstrap.js must register the Submission Tracker chrome content package");
+}
+if (!bootstrap.includes("chromeHandle?.destruct()")) {
+  throw new Error("bootstrap.js must unregister its chrome content package during shutdown");
+}
+if (!/^<!doctype html>/i.test(dashboard.trimStart()) || /<\?xml|xmlns=/i.test(dashboard)) {
+  throw new Error("dashboard.html must be a standard HTML document, not XHTML/XML");
+}
+if (!dashboard.includes('id="app"')) {
+  throw new Error("dashboard.html must contain the dashboard app root");
+}
+if (
+  !hostSource.includes('"chrome://submission-tracker/content/dashboard.html"') ||
+  hostSource.includes("dashboard.xhtml")
+) {
+  throw new Error("src/host.ts must open the standard HTML dashboard URL");
 }
 try {
   const updateUrl = new URL(zotero.update_url);
@@ -43,9 +64,10 @@ await mkdir(stage, { recursive: true });
 await cp(resolve(root, "addon"), stage, { recursive: true });
 await build({
   entryPoints: [resolve(root, "src/main.ts")],
-  outfile: resolve(stage, "content/main.sys.mjs"),
+  outfile: resolve(stage, "content/main.js"),
   bundle: true,
-  format: "esm",
+  format: "iife",
+  globalName: "SubmissionTrackerModule",
   platform: "browser",
   target: "firefox140",
   sourcemap: false,

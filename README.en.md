@@ -21,10 +21,10 @@ npm install
 npm run check
 ```
 
-Install `build/submission-tracker-0.1.5.xpi` from Zotero’s Add-ons Manager using “Install Add-on From File…”. See [the test guide](docs/TESTING.md) and [release checklist](release/RELEASE_CHECKLIST.md).
+Install `build/submission-tracker-0.1.14.xpi` from Zotero’s Add-ons Manager using “Install Add-on From File…”. See [the test guide](docs/TESTING.md) and [release checklist](release/RELEASE_CHECKLIST.md).
 
 ## Compatibility and release status
 
-The manifest targets Zotero 8, 9, and 10. Version 0.1.5 fixes a Zotero 10 startup failure caused by isolated ESM code being unable to see Zotero's privileged runtime globals. The bootstrap entry now passes those dependencies explicitly, and both menus have direct fallback labels. Source, XPI, and update metadata are published at [longkou1988/zotero-submission-tracker](https://github.com/longkou1988/zotero-submission-tracker). This is a public prerelease, not a stable release, until the complete OS and Zotero-version acceptance matrix is finished.
+The manifest targets Zotero 8, 9, and 10. Version 0.1.14 pins the exact dashboard document that finished loading and binds controls inside the freshly rendered application root, fixing the `querySelector(...) is null` startup failure caused by the window document changing during navigation. The dashboard still opens through the registered Zotero `chrome://` content package, and the regular-item context action still uses Zotero's formal menu API. Source, XPI, and update metadata are published at [longkou1988/zotero-submission-tracker](https://github.com/longkou1988/zotero-submission-tracker). This is a public prerelease, not a stable release, until the complete OS and Zotero-version acceptance matrix is finished.
 
 See [Privacy](PRIVACY.md), [Known limitations](KNOWN_LIMITATIONS.md), and [Changelog](CHANGELOG.md).

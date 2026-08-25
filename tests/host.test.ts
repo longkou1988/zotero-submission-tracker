@@ -1,0 +1,87 @@
+import { describe, expect, it, vi } from "vitest";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { DASHBOARD_URL, waitForDashboardDocument } from "../src/host";
+
+function createWindow(getApp: () => object | null) {
+  return {
+    closed: false,
+    document: {
+      readyState: "loading",
+      getElementById: vi.fn((id: string) => id === "app" ? getApp() : null),
+    },
+    location: { href: DASHBOARD_URL },
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+  } as any;
+}
+
+describe("dashboard document startup", () => {
+  it("uses a registered chrome URL instead of opening a page inside the XPI directly", () => {
+    expect(DASHBOARD_URL).toBe("chrome://submission-tracker/content/dashboard.html");
+  });
+
+  it("continues immediately when the application container already exists", async () => {
+    const win = createWindow(() => ({}));
+
+    await expect(waitForDashboardDocument(win, 50, 1)).resolves.toBe(win.document);
+
+    expect(win.document.getElementById).toHaveBeenCalledWith("app");
+  });
+
+  it("detects a container that appears without a load event", async () => {
+    let app: object | null = null;
+    const win = createWindow(() => app);
+    const waiting = waitForDashboardDocument(win, 200, 1);
+
+    setTimeout(() => { app = {}; }, 5);
+
+    await expect(waiting).resolves.toBe(win.document);
+    expect(win.addEventListener).toHaveBeenCalledWith("DOMContentLoaded", expect.any(Function));
+    expect(win.addEventListener).toHaveBeenCalledWith("load", expect.any(Function));
+  });
+
+  it("reports the loaded URL and ready state when startup really times out", async () => {
+    const win = createWindow(() => null);
+
+    await expect(waitForDashboardDocument(win, 10, 1)).rejects.toThrow(
+      /dashboard\.html.*readyState: loading/,
+    );
+  });
+
+  it("returns the exact document that contains the application container", async () => {
+    const loadedDocument = {
+      readyState: "complete",
+      getElementById: vi.fn((id: string) => id === "app" ? {} : null),
+    } as unknown as Document;
+    const replacementDocument = {
+      readyState: "complete",
+      getElementById: vi.fn(() => null),
+    } as unknown as Document;
+    let reads = 0;
+    const win = {
+      closed: false,
+      get document() {
+        reads += 1;
+        return reads === 1 ? loadedDocument : replacementDocument;
+      },
+      location: { href: DASHBOARD_URL },
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    } as any;
+
+    await expect(waitForDashboardDocument(win, 50, 1)).resolves.toBe(loadedDocument);
+    expect(reads).toBe(1);
+  });
+
+  it("uses standard HTML so the dashboard can render ordinary HTML fragments", () => {
+    const dashboard = readFileSync(
+      resolve(import.meta.dirname, "../addon/content/dashboard.html"),
+      "utf8",
+    );
+
+    expect(dashboard.trimStart()).toMatch(/^<!doctype html>/i);
+    expect(dashboard).not.toMatch(/<\?xml|xmlns=/i);
+    expect(dashboard).toContain('id="app"');
+  });
+});

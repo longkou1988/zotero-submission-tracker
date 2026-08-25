@@ -1,5 +1,5 @@
 import { ZoteroItemRef } from "./core/types";
-import { Components, Services, Zotero } from "./runtime";
+import { Services, Zotero } from "./runtime";
 
 export function regularSelectedItem(win: any): any | null {
   const items = win?.ZoteroPane?.getSelectedItems?.() ?? [];
@@ -43,6 +43,5 @@ export function openURL(url: string): void {
 }
 
 export async function copyText(text: string): Promise<void> {
-  const helper = Services.clipboardHelper ?? Components.classes["@mozilla.org/widget/clipboardhelper;1"].getService(Components.interfaces.nsIClipboardHelper);
-  helper.copyString(text);
+  Zotero.Utilities.Internal.copyTextToClipboard(text);
 }
