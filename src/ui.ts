@@ -67,13 +67,8 @@ export class DashboardUI {
         <select id="follow"><option value="" ${this.filters.follow===""?"selected":""}>${this.t("全部跟进","All follow-ups")}</option><option value="overdue" ${this.filters.follow==="overdue"?"selected":""}>${this.t("已逾期","Overdue")}</option><option value="today" ${this.filters.follow==="today"?"selected":""}>${this.t("今天","Today")}</option><option value="soon" ${this.filters.follow==="soon"?"selected":""}>${this.t("未来7天","Next 7 days")}</option><option value="none" ${this.filters.follow==="none"?"selected":""}>${this.t("无跟进日期","No date")}</option></select>
         <select id="lifecycle"><option value="active" ${this.filters.lifecycle==="active"?"selected":""}>${this.t("进行中","Active")}</option><option value="finished" ${this.filters.lifecycle==="finished"?"selected":""}>${this.t("已结束","Finished")}</option><option value="all" ${this.filters.lifecycle==="all"?"selected":""}>${this.t("全部","All")}</option></select></section>
       <div class="table-wrap">${rows.length ? `<table><thead><tr>${[["论文","Paper"],["期刊","Journal"],["稿件编号","Manuscript ID"],["当前状态","Current status"],["状态日期","Status date"],["持续天数","Days"],["投稿日期","Submitted"],["下一次跟进","Next follow-up"],["投稿系统","System"],["操作","Actions"]].map(x=>`<th>${this.t(x[0],x[1])}</th>`).join("")}</tr></thead><tbody>${rows.map(row=>this.row(row)).join("")}</tbody></table>` : `<div class="empty">${this.t("还没有符合条件的投稿记录。","No matching submissions.")}</div>`}</div>`;
-    replaceWithParsedHTML(this.doc, app, dashboardMarkup);
-    if (!app.querySelector("#q")) {
-      // Fallback for any environment where the parsed-fragment path did not make
-      // HTML-namespaced nodes queryable: set innerHTML directly. This is safe now
-      // that the UI lives inside an <iframe> with a real HTML document.
-      app.innerHTML = dashboardMarkup;
-    }
+    // The iframe provides a standard HTML document, so innerHTML works reliably.
+    app.innerHTML = dashboardMarkup;
     this.bind(app);
   }
 
@@ -112,7 +107,7 @@ export class DashboardUI {
 
   private dialog(title: string, body: string) {
     const d = createHTMLElement(this.doc, "dialog");
-    replaceWithParsedHTML(this.doc, d, `<h2>${esc(title)}</h2>${body}`);
+    d.innerHTML = `<h2>${esc(title)}</h2>${body}`;
     this.doc.body.append(d);
     d.addEventListener("close", () => d.remove());
     d.showModal();
