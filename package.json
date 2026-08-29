@@ -1,19 +1,63 @@
 {
   "name": "zotero-submission-tracker",
-  "version": "0.1.25",
-  "private": true,
   "type": "module",
-  "description": "Local-only submission tracking for Zotero 8, 9, and 10",
+  "version": "0.2.0",
+  "description": "Track journal submission records for your manuscripts in Zotero. 在 Zotero 中跟踪论文投稿记录。",
+  "config": {
+    "addonName": "Submission Tracker",
+    "addonID": "submission-tracker@research-tools",
+    "addonRef": "submissiontracker",
+    "addonInstance": "SubmissionTracker",
+    "prefsPrefix": "extensions.zotero.submissiontracker"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/longkou1988/zotero-submission-tracker.git"
+  },
+  "author": "kouzi",
+  "bugs": {
+    "url": "https://github.com/longkou1988/zotero-submission-tracker/issues"
+  },
+  "homepage": "https://github.com/longkou1988/zotero-submission-tracker#readme",
+  "license": "AGPL-3.0-or-later",
   "scripts": {
-    "build": "node scripts/build.mjs",
-    "test": "vitest run",
-    "typecheck": "tsc --noEmit",
-    "check": "npm run typecheck && npm test && npm run build"
+    "start": "zotero-plugin serve",
+    "build": "zotero-plugin build && tsc --noEmit",
+    "lint:check": "prettier --check . && eslint .",
+    "lint:fix": "prettier --write . && eslint . --fix",
+    "release": "zotero-plugin release",
+    "test": "zotero-plugin test",
+    "update-deps": "npm update --save"
+  },
+  "dependencies": {
+    "zotero-plugin-toolkit": "^5.1.0-beta.13"
   },
   "devDependencies": {
-    "@types/node": "^24.0.0",
-    "esbuild": "^0.25.0",
-    "typescript": "^5.9.0",
-    "vitest": "^3.2.0"
+    "@types/chai": "^5.2.3",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^24.10.0",
+    "@zotero-plugin/eslint-config": "^0.6.7",
+    "chai": "^6.2.1",
+    "eslint": "^9.39.2",
+    "mocha": "^11.7.5",
+    "prettier": "^3.7.4",
+    "typescript": "^5.9.3",
+    "zotero-plugin-scaffold": "^0.8.2",
+    "zotero-types": "^4.1.0-beta.4"
+  },
+  "prettier": {
+    "printWidth": 80,
+    "tabWidth": 2,
+    "endOfLine": "lf",
+    "overrides": [
+      {
+        "files": [
+          "*.xhtml"
+        ],
+        "options": {
+          "htmlWhitespaceSensitivity": "css"
+        }
+      }
+    ]
   }
 }

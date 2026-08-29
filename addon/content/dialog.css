@@ -1,0 +1,260 @@
+/* Submission Tracker — dialog windows */
+
+:root {
+  --st-accent: #3b82f6;
+  --st-danger: #e5484d;
+}
+
+/* Shared control/badge styles. Dialog windows only load dialog.css
+   (zoteroPane.css is main-window only), so the subset used by dialogs
+   is duplicated here. */
+
+.st-dot {
+  display: inline-block;
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--st-color, currentColor);
+}
+
+.st-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 1px 9px 1px 7px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  line-height: 1.7;
+  white-space: nowrap;
+  color: var(--st-color, currentColor);
+  background: color-mix(
+    in srgb,
+    var(--st-color, currentColor) 14%,
+    transparent
+  );
+}
+
+.st-badge-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--st-color, currentColor);
+}
+
+.st-badge--sm {
+  font-size: 10.5px;
+  padding: 0 8px 0 6px;
+}
+
+.st-btn {
+  appearance: none;
+  border: 1px solid color-mix(in srgb, currentColor 22%, transparent);
+  background: transparent;
+  color: inherit;
+  border-radius: 5px;
+  padding: 3px 11px;
+  font-size: 12px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.st-btn:hover {
+  background: color-mix(in srgb, currentColor 8%, transparent);
+}
+
+.st-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.st-btn--primary {
+  background: var(--st-accent);
+  border-color: var(--st-accent);
+  color: #fff;
+}
+
+.st-btn--primary:hover {
+  background: color-mix(in srgb, var(--st-accent) 85%, #000);
+}
+
+.st-btn--danger {
+  color: var(--st-danger);
+  border-color: color-mix(in srgb, var(--st-danger) 45%, transparent);
+}
+
+.st-btn--danger:hover {
+  background: color-mix(in srgb, var(--st-danger) 12%, transparent);
+}
+
+.st-flex-spacer {
+  flex: 1;
+}
+
+.st-event-date {
+  flex: none;
+  opacity: 0.6;
+  font-variant-numeric: tabular-nums;
+}
+
+.st-event-note {
+  opacity: 0.75;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.st-dialog-header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
+.st-dialog-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.st-dialog-sub {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.st-dialog-journal {
+  font-weight: 600;
+  opacity: 0.85;
+}
+
+.st-dialog-h3 {
+  margin: 0 0 6px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.6;
+}
+
+.st-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.st-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.st-field-label {
+  font-size: 12px;
+  font-weight: 600;
+  opacity: 0.75;
+}
+
+.st-field-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.st-field-hint {
+  font-size: 11px;
+  opacity: 0.55;
+}
+
+.st-input {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid color-mix(in srgb, currentColor 22%, transparent);
+  border-radius: 6px;
+  padding: 5px 9px;
+  background: color-mix(in srgb, currentColor 4%, transparent);
+  color: inherit;
+  font-size: 12.5px;
+  font-family: inherit;
+}
+
+.st-input:focus {
+  border-color: var(--st-accent);
+  outline: none;
+}
+
+.st-input--error {
+  border-color: var(--st-danger);
+}
+
+.st-textarea {
+  resize: vertical;
+  line-height: 1.5;
+}
+
+.st-select-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.st-select {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid color-mix(in srgb, currentColor 22%, transparent);
+  border-radius: 6px;
+  padding: 4px 6px;
+  background: color-mix(in srgb, currentColor 4%, transparent);
+  color: inherit;
+  font-size: 12.5px;
+}
+
+.st-dialog-footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+/* status history */
+
+.st-history {
+  margin-bottom: 14px;
+}
+
+.st-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.st-history-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+/* quick status update */
+
+.st-quick {
+  margin-bottom: 14px;
+}
+
+.st-quick-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.st-quick-row .st-select {
+  flex: 0 0 auto;
+  max-width: 150px;
+}
+
+.st-quick-row .st-input[type="date"] {
+  flex: 0 0 130px;
+}

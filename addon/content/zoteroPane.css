@@ -1,0 +1,234 @@
+/* Submission Tracker — item pane section + item tree column */
+
+:root {
+  --st-accent: #3b82f6;
+  --st-danger: #e5484d;
+}
+
+/* ---------- shared: status dot & badge ---------- */
+
+.st-dot {
+  display: inline-block;
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--st-color, currentColor);
+}
+
+.st-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 1px 9px 1px 7px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  line-height: 1.7;
+  white-space: nowrap;
+  color: var(--st-color, currentColor);
+  background: color-mix(
+    in srgb,
+    var(--st-color, currentColor) 14%,
+    transparent
+  );
+}
+
+.st-badge-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--st-color, currentColor);
+}
+
+.st-badge--sm {
+  font-size: 10.5px;
+  padding: 0 8px 0 6px;
+}
+
+.st-badge--cell {
+  margin-right: 4px;
+}
+
+/* ---------- shared: buttons ---------- */
+
+.st-btn {
+  appearance: none;
+  border: 1px solid color-mix(in srgb, currentColor 22%, transparent);
+  background: transparent;
+  color: inherit;
+  border-radius: 5px;
+  padding: 3px 11px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.st-btn:hover {
+  background: color-mix(in srgb, currentColor 8%, transparent);
+}
+
+.st-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.st-btn--primary {
+  background: var(--st-accent);
+  border-color: var(--st-accent);
+  color: #fff;
+}
+
+.st-btn--primary:hover {
+  background: color-mix(in srgb, var(--st-accent) 85%, #000);
+}
+
+.st-btn--danger {
+  color: var(--st-danger);
+  border-color: color-mix(in srgb, var(--st-danger) 45%, transparent);
+}
+
+.st-btn--danger:hover {
+  background: color-mix(in srgb, var(--st-danger) 12%, transparent);
+}
+
+.st-btn--sm {
+  padding: 1px 8px;
+  font-size: 11px;
+}
+
+.st-iconbtn {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: inherit;
+  opacity: 0.6;
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.st-iconbtn:hover {
+  opacity: 1;
+  background: color-mix(in srgb, currentColor 10%, transparent);
+}
+
+.st-flex-spacer {
+  flex: 1;
+}
+
+/* ---------- item pane section ---------- */
+
+.st-section-root {
+  display: block;
+  padding: 2px 0 6px;
+}
+
+.st-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 2px;
+}
+
+.st-empty-hint {
+  opacity: 0.65;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.st-sub {
+  padding: 7px 2px;
+}
+
+.st-sub + .st-sub {
+  border-top: 1px solid color-mix(in srgb, currentColor 10%, transparent);
+}
+
+.st-sub-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.st-sub-journal {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.st-sub-journal:hover {
+  text-decoration: underline;
+}
+
+.st-timeline {
+  margin: 6px 0 0 4px;
+  padding-left: 11px;
+  border-left: 2px solid color-mix(in srgb, currentColor 12%, transparent);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.st-event {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  min-width: 0;
+}
+
+.st-event-date {
+  flex: none;
+  opacity: 0.6;
+  font-variant-numeric: tabular-nums;
+}
+
+.st-event-note {
+  opacity: 0.75;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.st-more {
+  appearance: none;
+  background: none;
+  border: none;
+  padding: 0;
+  color: inherit;
+  opacity: 0.6;
+  font-size: 11px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.st-more:hover {
+  opacity: 1;
+  text-decoration: underline;
+}
+
+.st-followup {
+  margin-top: 5px;
+  font-size: 11.5px;
+  opacity: 0.8;
+}
+
+.st-followup--overdue {
+  color: var(--st-danger);
+  opacity: 1;
+}
+
+/* ---------- item tree column ---------- */
+
+.st-cell {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+}

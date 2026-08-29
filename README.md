@@ -1,59 +1,111 @@
-# 投稿追踪 / Submission Tracker
+# Submission Tracker · 投稿追踪
 
-一款面向 Zotero 8、9 和 10 的本地投稿管理插件。它把 Zotero 文献与期刊、投稿系统入口、登录用户名、稿件编号、状态时间线和下一次跟进日期关联起来。
+[![zotero target version](https://img.shields.io/badge/Zotero-7%20%7C%208%20%7C%209%20%7C%2010-green?style=flat-square&logo=zotero&logoColor=CC2936)](https://www.zotero.org)
+[![release](https://img.shields.io/github/v/release/longkou1988/zotero-submission-tracker?style=flat-square)](https://github.com/longkou1988/zotero-submission-tracker/releases)
+[![license](https://img.shields.io/github/license/longkou1988/zotero-submission-tracker?style=flat-square)](LICENSE)
 
-> 投稿追踪不是密码管理器。插件没有密码字段，不自动登录、不抓取网站状态，也不修改 `zotero.sqlite`。除 Zotero 检查插件更新外，插件不会发起后台网络请求。密码继续交给浏览器、1Password 或系统钥匙串。
+在 Zotero 中跟踪论文的期刊投稿全流程：多次投稿、状态流转时间线、跟进提醒、全局投稿管理面板。
+Track journal submission records for your manuscripts right inside Zotero: multiple rounds, status timelines, follow-up reminders, and a dashboard.
 
-## 已实现功能
+| 投稿管理面板 Dashboard                  | 条目面板区块 Item Pane Section         |
+| --------------------------------------- | -------------------------------------- |
+| ![Dashboard](screenshots/dashboard.png) | ![Item pane](screenshots/itempane.png) |
 
-- 从普通 Zotero 文献右键创建投稿记录；附件、笔记和批注不显示入口。
-- 同一文献可保存多次投稿、改投和返修记录。
-- 可复用及归档投稿系统配置，支持打开登录页和复制用户名。
-- 11 个预设状态、自定义状态，以及可编辑、可删除的完整时间线。
-- 按“生效日期、创建时间”确定当前状态；补录旧事件不会覆盖较新的状态。
-- 本地日期跟进提醒、逾期/7 天内排序、状态/系统/期刊/生命周期筛选。
-- UTF-8 BOM CSV 导出，默认不含用户名。
-- 带结构校验、引用校验、预览确认和替换式恢复的完整 JSON 备份。
-- 原子式数据写入和 `.bak` 回退；禁用或卸载插件不会删除数据。
-- 简体中文和英文界面。
+| 添加投稿 Add Submission                          |
+| ------------------------------------------------ |
+| ![Add submission dialog](screenshots/dialog.png) |
 
-## 安装
+---
 
-下载 Release 中的 `submission-tracker-*.xpi`，在 Zotero 中打开“工具 → 附加组件”，使用齿轮菜单选择“Install Add-on From File…”，然后选择 XPI。
+## 中文
 
-当前工作区构建可运行：
+### 功能
+
+- **条目面板「投稿记录」区块**：选中文献即可查看投稿状态徽章、状态流转时间线和跟进日期（逾期红色高亮），支持一键新增投稿
+- **右键快速入口**：选中文献 → 右键「投稿记录 → 添加投稿记录」，支持多选批量添加
+- **条目列表「投稿状态」列**：彩色状态徽章一目了然（右键列标题 → 在列选择器中开启）
+- **投稿管理面板**：在 Zotero 内以标签页打开——统计卡片（全部 / 进行中 / 待跟进 / 录用 / 拒稿 / 撤稿）、搜索、状态筛选，点击记录跳转到对应文献
+- **状态流转留痕**：草稿 → 已投稿 → 编辑部审核 → 外审中 → 大修 / 小修 → 录用 / 拒稿 / 撤稿，每次变更记录日期与备注，完整历史可回溯
+- **跟进提醒**：为投稿设置跟进日期，到期或逾期时启动 Zotero 会弹出提醒
+- **期刊名自动补全**：基于历史投稿记录
+- **导入 / 导出**：CSV（UTF-8 BOM，Excel 友好）与 JSON 备份 / 恢复
+- **双语界面**：简体中文 / English，深浅色主题自适应
+
+### 安装
+
+1. 从 [Releases](https://github.com/longkou1988/zotero-submission-tracker/releases) 下载最新的 `submission-tracker-*.xpi`
+2. Zotero → 工具 → 插件 → 齿轮图标 →「Install Add-on From File…」→ 选择 xpi
+3. 选中一篇文献，右键「投稿记录 → 添加投稿记录」开始使用
+
+### 使用
+
+1. **添加投稿**：选中文献 → 右键「投稿记录」→「添加投稿记录」，填写期刊（自动补全）、状态、日期与跟进日期
+2. **更新状态**：收到期刊回复后，在条目面板「投稿记录」区块点击期刊名或「详情」→「记录状态变更」，选择新状态并写备注
+3. **全局管理**：菜单栏 工具 → 打开投稿管理，查看统计、筛选和跟进
+4. **设置**：Zotero 设置 → Submission Tracker——跟进提醒开关、可选「同步状态摘要到条目 Extra 字段」
+
+### 数据与隐私
+
+- 投稿记录保存在本机 Zotero 数据目录的 `zotero.sqlite` 中的两张插件表（`submissiontrackerSubmissions` / `submissiontrackerEvents`），**不上传任何数据、不发任何网络请求**（插件更新检查除外）
+- 数据不随 Zotero 官方同步；换机器请使用「导出 JSON → 导入 JSON」迁移
+
+### 从旧版本（≤ 0.1.25）升级
+
+0.2.0 是一次彻底重构：数据从 JSON 文件迁移到 `zotero.sqlite` 插件表，界面重做为条目面板区块 + 内置标签页面板。**旧版本的 JSON 数据不会自动迁移**；如需保留旧记录，请在旧版本中导出 CSV 备查。同一插件 ID 直接覆盖升级，无需卸载旧版。
+
+### 开发
+
+基于 [zotero-plugin-template](https://github.com/windingwind/zotero-plugin-template)（TypeScript + esbuild + zotero-plugin-scaffold）。
 
 ```sh
 npm install
-npm run check
+cp .env.example .env   # 配置本机 Zotero 路径与 profile 路径
+npm start              # 构建并以热加载模式启动 Zotero 调试
+npm run build          # 产出 .scaffold/build/*.xpi
 ```
 
-生成文件位于 `build/submission-tracker-0.1.15.xpi`。开发、手工验收和发布方法见 [docs/TESTING.md](docs/TESTING.md) 与 [release/RELEASE_CHECKLIST.md](release/RELEASE_CHECKLIST.md)。
+在 Zotero 中可通过 `Zotero.SubmissionTracker.api` 访问编程接口（`db`、`openDashboard`、`openCreateDialog`、`checkFollowUps`）。
 
-## 使用
+## English
 
-1. 在 Zotero 资料库中选中一篇普通文献，右键选择“创建投稿记录”。
-2. 填写期刊、投稿日期、稿件编号和下一次跟进日期。
-3. 在看板中选择“更新状态”添加时间线事件。
-4. 使用“投稿系统”配置保存登录地址和用户名；密码不会进入插件。
-5. 在设置中导出 JSON 完整备份或 CSV 管理表。
+### Features
 
-数据默认保存在 Zotero 数据目录的 `submission-tracker/data-v1.json`；前一份有效数据保存在 `data-v1.json.bak`。
+- **Item pane "Submission Records" section**: status badge, status timeline and follow-up date (overdue in red) for the selected item; add submissions with one click
+- **Right-click entry**: select items → "Submission Records → Add Submission Record"; batch supported
+- **Item list "Submission Status" column**: colored status badges (enable via the column picker)
+- **Submission dashboard**: opens as a tab inside Zotero — stat cards (total / in progress / to follow up / accepted / rejected / withdrawn), search, status filters, click a row to jump to the item
+- **Full audit trail**: Draft → Submitted → With Editor → Under Review → Major/Minor Revision → Accepted / Rejected / Withdrawn, each change recorded with date and note
+- **Follow-up reminders**: set a follow-up date per submission; Zotero shows a reminder when it is due
+- **Journal name autocomplete** based on your history
+- **Import / export**: CSV (UTF-8 BOM, Excel friendly) and JSON backup / restore
+- **Bilingual UI**: 简体中文 / English; adaptive to light & dark themes
 
-## 兼容性
+### Installation
 
-- Zotero 8：目标支持。
-- Zotero 9：目标支持。
-- Zotero 10：按当前 Beta 接口设置兼容上限；正式版发布后仍需重新验收。
+1. Download the latest `submission-tracker-*.xpi` from [Releases](https://github.com/longkou1988/zotero-submission-tracker/releases)
+2. In Zotero: Tools → Plugins → gear icon → "Install Add-on From File…" → pick the xpi
+3. Right-click an item → "Submission Records → Add Submission Record" to get started
 
-本项目只使用 Zotero bootstrap、标准 ESM 和 `Zotero.MenuManager`。看板宿主逻辑集中在 `src/host.ts`，以便适配 Zotero 后续界面变化。
+### Usage
 
-## 发布状态
+1. **Add a submission**: select an item → right-click → "Submission Records" → "Add Submission Record"
+2. **Update status**: when the journal replies, open the record from the item pane section (click the journal name or "Details") → "Record Status Update"
+3. **Dashboard**: Tools → Open Submission Dashboard for stats, filters and follow-ups
+4. **Preferences**: Zotero Settings → Submission Tracker — reminder toggle and an optional status mirror into the item "Extra" field
 
-`0.1.15` 将动态看板和对话框先在标准 HTML 文档中解析，再导入 Zotero 特权窗口，修复搜索框 `#q` 等控件因命名空间错误而未实际生成的问题。看板仍通过已注册的 Zotero `chrome://` 内容包打开，普通文献条目的右键入口仍使用 Zotero 正式菜单接口。源码、XPI 与自动更新清单发布在 [longkou1988/zotero-submission-tracker](https://github.com/longkou1988/zotero-submission-tracker)。在完成 macOS、Windows、Linux 以及 Zotero 8、9、10 的完整验收矩阵前，本版本不标记为稳定版。
+### Data & privacy
 
-另见：[隐私说明](PRIVACY.md)、[已知限制](KNOWN_LIMITATIONS.md)、[英文 README](README.en.md)、[更新日志](CHANGELOG.md)。
+- Records live in two plugin tables (`submissiontrackerSubmissions` / `submissiontrackerEvents`) inside your local `zotero.sqlite`. **No data leaves your machine**; no network requests except plugin update checks
+- Data does not sync with Zotero's official sync; migrate with "Export JSON → Import JSON"
 
-## 许可证
+### Upgrading from ≤ 0.1.25
 
-尚未指定。公开发布前请由项目所有者选择并添加许可证。
+0.2.0 is a full rewrite: storage moved from JSON files to plugin tables in `zotero.sqlite`, and the UI was redesigned around an item pane section plus an in-tab dashboard. **Old JSON data is not migrated automatically.** The add-on ID is unchanged, so installing the new xpi upgrades in place.
+
+### Development
+
+Built on [zotero-plugin-template](https://github.com/windingwind/zotero-plugin-template) (TypeScript + esbuild + zotero-plugin-scaffold). See the Chinese section above for commands; the programming API is available at `Zotero.SubmissionTracker.api`.
+
+## License
+
+[AGPL-3.0-or-later](LICENSE) · Copyright © 2026 kouzi

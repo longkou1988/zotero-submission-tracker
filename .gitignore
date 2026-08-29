@@ -1,4 +1,5 @@
-node_modules/
-build/
-*.xpi
+node_modules
+.scaffold
+.env
+*.log
 .DS_Store
