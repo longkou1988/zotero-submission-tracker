@@ -26,20 +26,18 @@ export function registerItemPaneSection(): void {
       icon: `chrome://${config.addonRef}/content/icons/section.svg`,
     },
     onItemChange: ({ item, setEnabled }) => {
+      const currentItem = (item as Zotero.Item) || null;
       setEnabled(
-        !!item &&
-          (item as Zotero.Item).isRegularItem() &&
-          !(item as any).isFeedItem,
+        !!currentItem &&
+          currentItem.isRegularItem() &&
+          !(currentItem as any).isFeedItem,
       );
       return true;
     },
     onRender: ({ body, item, setSectionSummary }) => {
       body.textContent = "";
-      renderedSections.push({
-        body: body as HTMLElement,
-        itemID: item ? (item as Zotero.Item).id : null,
-      });
-      renderSection(
+      trackSection(body as HTMLElement, (item as Zotero.Item) || false);
+      void renderSection(
         body as HTMLElement,
         item as Zotero.Item | false,
         setSectionSummary,
@@ -67,34 +65,157 @@ export function registerItemPaneSection(): void {
 }
 
 /**
+ * Track a rendered section body so data mutations can re-render it.
+ * Existing entries for the same body are refreshed instead of duplicated.
+ */
+function trackSection(body: HTMLElement, item: Zotero.Item | false): void {
+  const itemID = item ? (item as Zotero.Item).id : null;
+  for (let i = renderedSections.length - 1; i >= 0; i -= 1) {
+    if (renderedSections[i].body === body) {
+      renderedSections.splice(i, 1);
+    }
+  }
+  renderedSections.push({ body, itemID });
+}
+
+/**
  * Re-render every visible section (called after data mutations, because
  * custom sections get no automatic re-render for plugin-owned data).
  */
-export function refreshOpenSections(): void {
-  for (let i = renderedSections.length - 1; i >= 0; i -= 1) {
-    const entry = renderedSections[i];
+export async function refreshOpenSections(): Promise<void> {
+  for (const entry of [...renderedSections]) {
     if (!entry.body.isConnected) {
-      renderedSections.splice(i, 1);
+      const idx = renderedSections.indexOf(entry);
+      if (idx >= 0) {
+        renderedSections.splice(idx, 1);
+      }
       continue;
     }
     const item = entry.itemID != null ? Zotero.Items.get(entry.itemID) : false;
     entry.body.textContent = "";
-    renderSection(entry.body, item as Zotero.Item | false, undefined);
+    await renderSection(entry.body, item as Zotero.Item | false, undefined);
+  }
+}
+
+let healTimer: number | null = null;
+const lastReloadAt = 0;
+
+/**
+ * Safety net for the flaky custom-section render pipeline: query the DOM
+ * directly and re-render any section that is bound to a valid item but
+ * whose body sits empty (hook registration and pane rebuilds can race,
+ * leaving instances no tracked entry can heal). Runs every ~1.5 s.
+ */
+export function startSectionHealLoop(): void {
+  if (healTimer != null) {
+    return;
+  }
+  (addon.data as any).sweepDriven = true;
+  healTimer = setInterval(() => {
+    void sweepTick();
+  }, 800) as unknown as number;
+}
+
+async function sweepTick(): Promise<void> {
+  if (!addon?.data.alive) {
+    stopSectionHealLoop();
+    return;
+  }
+  // If Zotero loaded the plugin twice (e.g. after a same-session addon
+  // replacement), only the context owning Zotero.<addonInstance> may
+  // touch the DOM — older contexts' caches are stale.
+  if ((Zotero as any)[config.addonInstance] !== addon) {
+    stopSectionHealLoop();
+    return;
+  }
+  for (const win of Zotero.getMainWindows()) {
+    const doc = win.document;
+    const sections = [
+      ...doc.querySelectorAll(
+        'item-pane-custom-section[data-pane$="submissiontracker-section"]',
+      ),
+    ];
+    if (!sections.length) {
+      continue;
+    }
+    // Zotero 10 does not reliably rebind custom sections on item switches
+    // (el.item can stay frozen), so the sweep reads the selected item
+    // straight from ZoteroPane — the authoritative source.
+    let currentItem: Zotero.Item | null = null;
+    try {
+      const selected = ((win as any).ZoteroPane?.getSelectedItems?.() ||
+        []) as Zotero.Item[];
+      currentItem =
+        selected.find(
+          (i) => i && i.isRegularItem() && !(i as any).isFeedItem,
+        ) || null;
+    } catch (e) {
+      ztoolkit.log("submissiontracker: getSelectedItems failed", e);
+    }
+    for (const sec of sections) {
+      try {
+        const el = sec as any;
+        if (el._section) {
+          el.hidden = !currentItem;
+        }
+        if (!currentItem) {
+          continue;
+        }
+        // Keep Zotero's own binding in sync for other consumers.
+        try {
+          if (!el.item || el.item.id !== currentItem.id) {
+            el.item = currentItem;
+          }
+        } catch (e) {
+          // assignment is best-effort only
+        }
+        const body = el._body as HTMLElement | null;
+        if (!body) {
+          continue;
+        }
+        const stale =
+          body.dataset.stRenderedItem !== String(currentItem.id) ||
+          !body.querySelector(".st-section-root") ||
+          !!body.querySelector(".st-empty");
+        if (!stale) {
+          continue;
+        }
+        body.textContent = "";
+        await renderSection(body, currentItem);
+        const latest = await db.getLatestForItem(
+          currentItem.libraryID,
+          currentItem.key,
+        );
+        if (el._section) {
+          el._section.summary = latest ? statusLabel(latest.currentStatus) : "";
+        }
+      } catch (e) {
+        ztoolkit.log("submissiontracker: section sweep failed", e);
+      }
+    }
+  }
+}
+
+export function stopSectionHealLoop(): void {
+  if (healTimer != null) {
+    clearInterval(healTimer);
+    healTimer = null;
   }
 }
 
 type SectionSummarySetter = (summary: string) => string;
 
-function renderSection(
+async function renderSection(
   body: HTMLElement,
   item: Zotero.Item | false,
   setSectionSummary?: SectionSummarySetter,
-): void {
+): Promise<void> {
   const doc = body.ownerDocument as Document;
   if (!item || (item as any).isFeedItem) {
     return;
   }
-  const records = db.getForItem(item.libraryID, item.key);
+  const records = await db.getForItem(item.libraryID, item.key);
+  body.dataset.stRenderedItem = String(item.id);
   const root = html(doc, "div", "st-section-root");
   body.appendChild(root);
 
@@ -116,14 +237,14 @@ function renderSection(
   }
 
   for (const record of records) {
-    root.appendChild(buildRecordBlock(doc, record));
+    root.appendChild(await buildRecordBlock(doc, record));
   }
 }
 
-function buildRecordBlock(
+async function buildRecordBlock(
   doc: Document,
   record: SubmissionRecord,
-): HTMLElement {
+): Promise<HTMLElement> {
   const block = html(doc, "div", "st-sub");
 
   const head = html(doc, "div", "st-sub-head");
@@ -138,7 +259,7 @@ function buildRecordBlock(
   head.append(journal, badge, edit);
   block.appendChild(head);
 
-  const events = db.getEvents(record.id);
+  const events = await db.getEvents(record.id);
   if (events.length) {
     block.appendChild(buildTimeline(doc, events));
   }
@@ -184,10 +305,13 @@ function buildTimeline(doc: Document, events: StatusEvent[]): HTMLElement {
     });
     timeline.appendChild(more);
     more.addEventListener("click", () => {
-      const record = db.getSubmission(shown[shown.length - 1].submissionId);
-      if (record) {
-        openDetailDialog(record);
-      }
+      void db
+        .getSubmission(shown[shown.length - 1].submissionId)
+        .then((record) => {
+          if (record) {
+            openDetailDialog(record);
+          }
+        });
     });
   }
   return timeline;

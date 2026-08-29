@@ -138,19 +138,21 @@ function buildDashboard(doc: Document, container: HTMLElement): void {
   (container as any).appendChild(root);
 }
 
-function refresh(): void {
+async function refresh(): Promise<void> {
   if (!opened) {
     return;
   }
-  renderStats();
   renderChips();
-  renderList();
+  await renderStats();
+  await renderList();
 }
 
 /* ----------------------------- stats ----------------------------- */
 
-function computeStats(): Record<FilterKey | "revisions", number> {
-  const records = db.getAll();
+async function computeStats(): Promise<
+  Record<FilterKey | "revisions", number>
+> {
+  const records = await db.getAll();
   const stats = {
     all: records.length,
     active: 0,
@@ -180,13 +182,13 @@ function computeStats(): Record<FilterKey | "revisions", number> {
   return stats;
 }
 
-function renderStats(): void {
+async function renderStats(): Promise<void> {
   if (!statsEl) {
     return;
   }
   const doc = statsEl.ownerDocument as Document;
   statsEl.textContent = "";
-  const stats = computeStats();
+  const stats = await computeStats();
   const cards: Array<[FilterKey, string, number]> = [
     ["all", getString("stat-total"), stats.all],
     ["active", getString("stat-active"), stats.active],
@@ -271,14 +273,13 @@ function matchesFilter(record: SubmissionRecord, filter: FilterKey): boolean {
   }
 }
 
-function renderList(): void {
+async function renderList(): Promise<void> {
   if (!listEl) {
     return;
   }
   const doc = listEl.ownerDocument as Document;
   listEl.textContent = "";
-  const records = db
-    .getAll()
+  const records = (await db.getAll())
     .filter((r) => matchesFilter(r, state.filter))
     .filter((r) => {
       if (!state.search) {
@@ -301,7 +302,7 @@ function renderList(): void {
 
   if (!records.length) {
     const empty = html(doc, "div", "st-dash-empty");
-    empty.textContent = db.getAll().length
+    empty.textContent = (await db.getAll()).length
       ? getString("dashboard-empty-filtered")
       : getString("dashboard-empty");
     listEl.appendChild(empty);
@@ -309,11 +310,14 @@ function renderList(): void {
   }
 
   for (const record of records) {
-    listEl.appendChild(buildRow(doc, record));
+    listEl.appendChild(await buildRow(doc, record));
   }
 }
 
-function buildRow(doc: Document, record: SubmissionRecord): HTMLElement {
+async function buildRow(
+  doc: Document,
+  record: SubmissionRecord,
+): Promise<HTMLElement> {
   const row = html(doc, "div", "st-row");
   if (!getItemTitle(record.libraryID, record.itemKey)) {
     row.classList.add("st-row--missing");
@@ -341,7 +345,7 @@ function buildRow(doc: Document, record: SubmissionRecord): HTMLElement {
   journal.textContent = record.journal;
   journal.title = record.journal;
 
-  const events = db.getEvents(record.id);
+  const events = await db.getEvents(record.id);
   const lastEvent: StatusEvent | undefined = events[events.length - 1];
   const updated = html(doc, "span", "st-row-date");
   updated.textContent = lastEvent ? lastEvent.date : "";
@@ -433,13 +437,13 @@ async function pickFile(
 }
 
 async function exportCSVFile(doc: Document): Promise<void> {
-  const records = db.getAll();
+  const records = await db.getAll();
   const escape = (v: string) => `"${String(v).replace(/"/g, '""')}"`;
   const lines = [
     "Title,Journal,Status,LastEvent,FollowUp,ManuscriptID,LastChecked,StatusURL,Notes",
   ];
   for (const record of records) {
-    const events = db.getEvents(record.id);
+    const events = await db.getEvents(record.id);
     const last = events[events.length - 1];
     lines.push(
       [

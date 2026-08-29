@@ -92,3 +92,4 @@ dashboard-status-page = Status Page
 dashboard-last-checked = Last checked: { $date }
 dashboard-never-checked = Status page never checked
 statuspage-tab-title = Status Page · { $journal }
+dialog-delete-event = Delete this status entry

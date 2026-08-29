@@ -54,7 +54,7 @@ export function unregisterNotifier(): void {
  * Drop submission records whose Zotero item no longer exists.
  */
 export async function cleanupOrphans(): Promise<void> {
-  const records = db.getAll();
+  const records = await db.getAll();
   if (!records.length) {
     return;
   }
@@ -92,12 +92,11 @@ function stopReminderLoop(): void {
   }
 }
 
-export function checkFollowUps(): void {
+export async function checkFollowUps(): Promise<void> {
   if (!getPref("reminder.enabled")) {
     return;
   }
-  const due = db
-    .getAll()
+  const due = (await db.getAll())
     .filter(
       (record) =>
         ACTIVE_STATUSES.includes(record.currentStatus) &&

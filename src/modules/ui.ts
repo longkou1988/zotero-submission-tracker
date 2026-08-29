@@ -1,4 +1,4 @@
-import { STATUS_META, SubmissionStatus } from "../types";
+import { STATUS_LIST, STATUS_META, SubmissionStatus } from "../types";
 import { getString } from "../utils/locale";
 
 export const HTML_NS = "http://www.w3.org/1999/xhtml";
@@ -45,6 +45,47 @@ export function statusBadge(
   label.textContent = statusLabel(status);
   badge.append(dot, label);
   return badge;
+}
+
+/**
+ * Pick the submission status by clicking colored pills. Used instead of a
+ * <select>: HTML select popups do not open in toolkit dialog windows.
+ */
+export function buildStatusPicker(
+  doc: Document,
+  selected: SubmissionStatus,
+): { el: HTMLElement; get value(): SubmissionStatus } {
+  const root = html(doc, "div", "st-statuspicker");
+  let value: SubmissionStatus = selected;
+  const pills = new Map<SubmissionStatus, HTMLElement>();
+  for (const status of STATUS_LIST) {
+    const pill = html(doc, "button", "st-pill") as HTMLButtonElement;
+    pill.type = "button";
+    pill.style.setProperty("--st-color", statusColor(status));
+    pill.dataset.status = status;
+    const dot = html(doc, "span", "st-badge-dot");
+    const label = html(doc, "span", "st-pill-label");
+    label.textContent = statusLabel(status);
+    pill.append(dot, label);
+    if (status === selected) {
+      pill.classList.add("st-pill--selected");
+    }
+    pill.addEventListener("click", () => {
+      value = status;
+      for (const [, el] of pills) {
+        el.classList.remove("st-pill--selected");
+      }
+      pill.classList.add("st-pill--selected");
+    });
+    pills.set(status, pill);
+    root.appendChild(pill);
+  }
+  return {
+    el: root,
+    get value(): SubmissionStatus {
+      return value;
+    },
+  };
 }
 
 /** Resolve the display title of a library item, or null if it is gone. */

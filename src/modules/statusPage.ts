@@ -125,10 +125,11 @@ function buildToolbar(
   const detail = html(doc, "button", "st-btn st-btn--sm") as HTMLButtonElement;
   detail.textContent = getString("statuspage-open-detail");
   detail.addEventListener("click", () => {
-    const fresh = db.getSubmission(record.id);
-    if (fresh) {
-      openDetailDialog(fresh);
-    }
+    void db.getSubmission(record.id).then((fresh) => {
+      if (fresh) {
+        openDetailDialog(fresh);
+      }
+    });
   });
 
   const close = html(doc, "button", "st-btn st-btn--sm") as HTMLButtonElement;

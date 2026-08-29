@@ -10,6 +10,9 @@ var chromeHandle;
 function install(data, reason) {}
 
 async function startup({ id, version, resourceURI, rootURI }, reason) {
+  try {
+    Zotero.STBootLog = (Zotero.STBootLog || "") + rootURI + "\n";
+  } catch (e) {}
   var aomStartup = Components.classes[
     "@mozilla.org/addons/addon-manager-startup;1"
   ].getService(Components.interfaces.amIAddonManagerStartup);

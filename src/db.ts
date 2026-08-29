@@ -12,13 +12,35 @@ const TABLE_EVENTS = "submissiontrackerEvents";
 
 /**
  * Data layer for submission records, backed by two tables in zotero.sqlite.
- * An in-memory cache keeps the item-tree column provider synchronous.
+ *
+ * Reads hit the database directly: Zotero can load an addon bundle into more
+ * than one sandbox context (e.g. after same-session addon replacement), and
+ * an in-memory cache would then serve stale rows from the wrong context.
+ * The only cached state is `columnMirror`, a tiny status map refreshed on
+ * every mutation and by the section sweep, used by the synchronous item-tree
+ * column provider.
  */
 class SubmissionDB {
-  private records: SubmissionRecord[] = [];
-  private events: StatusEvent[] = [];
-  private byItem = new Map<string, SubmissionRecord[]>();
+  /** itemKey (`libraryID:itemKey`) -> current status, for the sync column. */
+  private columnMirror = new Map<string, SubmissionStatus>();
   private listeners = new Set<() => void>();
+  /** Set once initialize() has run in this context. */
+  initialized = false;
+
+  constructor() {
+    // Callers outside this bundle (Zotero.SubmissionTracker.api from other
+    // plugins or Run JavaScript) reach these methods through a cross-
+    // compartment wrapper; unbound calls would misbehave when methods rely
+    // on `this`. Bind everything eagerly.
+    for (const key of Object.getOwnPropertyNames(
+      SubmissionDB.prototype,
+    ) as Array<keyof SubmissionDB>) {
+      const value = (this as any)[key];
+      if (typeof value === "function") {
+        (this as any)[key] = value.bind(this);
+      }
+    }
+  }
 
   async initialize(): Promise<void> {
     await Zotero.DB.executeTransaction(async () => {
@@ -31,6 +53,9 @@ class SubmissionDB {
           currentStatus TEXT NOT NULL DEFAULT 'draft',
           followUpDate TEXT,
           notes TEXT NOT NULL DEFAULT '',
+          statusUrl TEXT,
+          manuscriptId TEXT,
+          lastCheckedAt INTEGER,
           createdAt INTEGER NOT NULL,
           updatedAt INTEGER NOT NULL
         )`,
@@ -55,7 +80,8 @@ class SubmissionDB {
       );
     });
     await this.migrate();
-    await this.reload();
+    await this.refreshMirror();
+    this.initialized = true;
   }
 
   /** Idempotent column migrations for tables created before 0.3.0. */
@@ -85,16 +111,8 @@ class SubmissionDB {
     return () => this.listeners.delete(listener);
   }
 
-  private async reload(): Promise<void> {
-    const rows = (await Zotero.DB.queryAsync(
-      `SELECT * FROM ${TABLE_SUBMISSIONS} ORDER BY createdAt DESC, id DESC`,
-    )) as any[];
-    this.records = rows.map(rowToRecord);
-    const eventRows = (await Zotero.DB.queryAsync(
-      `SELECT * FROM ${TABLE_EVENTS} ORDER BY date ASC, id ASC`,
-    )) as any[];
-    this.events = eventRows.map(rowToEvent);
-    this.rebuildIndex();
+  private notify(): void {
+    void this.refreshMirror();
     for (const listener of this.listeners) {
       try {
         listener();
@@ -104,50 +122,86 @@ class SubmissionDB {
     }
   }
 
-  private rebuildIndex(): void {
-    this.byItem.clear();
-    for (const record of this.records) {
-      const key = itemKeyOf(record.libraryID, record.itemKey);
-      const list = this.byItem.get(key);
-      if (list) {
-        list.push(record);
-      } else {
-        this.byItem.set(key, [record]);
+  /** Refresh the synchronous mirror used by the item-tree column. */
+  async refreshMirror(): Promise<void> {
+    try {
+      const rows = (await Zotero.DB.queryAsync(
+        `SELECT libraryID, itemKey, currentStatus FROM ${TABLE_SUBMISSIONS}
+         ORDER BY updatedAt DESC`,
+      )) as any[];
+      const mirror = new Map<string, SubmissionStatus>();
+      for (const row of rows || []) {
+        const key = `${Number(row.libraryID)}:${String(row.itemKey)}`;
+        const status = String(row.currentStatus);
+        // First row per item = most recently updated submission.
+        if (!mirror.has(key) && isSubmissionStatus(status)) {
+          mirror.set(key, status);
+        }
       }
+      this.columnMirror = mirror;
+    } catch (e) {
+      ztoolkit.log("submissiontracker: refreshMirror failed", e);
     }
   }
 
-  getAll(): SubmissionRecord[] {
-    return this.records;
-  }
-
-  getForItem(libraryID: number, itemKey: string): SubmissionRecord[] {
-    return this.byItem.get(itemKeyOf(libraryID, itemKey)) || [];
-  }
-
-  getLatestForItem(
+  /** Synchronous status lookup for the item-tree column provider. */
+  getColumnStatusSync(
     libraryID: number,
     itemKey: string,
-  ): SubmissionRecord | undefined {
-    return this.getForItem(libraryID, itemKey)[0];
+  ): SubmissionStatus | null {
+    return this.columnMirror.get(`${libraryID}:${itemKey}`) || null;
   }
 
-  getSubmission(id: number): SubmissionRecord | undefined {
-    return this.records.find((r) => r.id === id);
+  async getAll(): Promise<SubmissionRecord[]> {
+    const rows = (await Zotero.DB.queryAsync(
+      `SELECT * FROM ${TABLE_SUBMISSIONS} ORDER BY createdAt DESC, id DESC`,
+    )) as any[];
+    return (rows || []).map(rowToRecord);
   }
 
-  getEvents(submissionId: number): StatusEvent[] {
-    return this.events.filter((e) => e.submissionId === submissionId);
+  async getForItem(
+    libraryID: number,
+    itemKey: string,
+  ): Promise<SubmissionRecord[]> {
+    const rows = (await Zotero.DB.queryAsync(
+      `SELECT * FROM ${TABLE_SUBMISSIONS}
+       WHERE libraryID = ? AND itemKey = ?
+       ORDER BY createdAt DESC, id DESC`,
+      [libraryID, itemKey],
+    )) as any[];
+    return (rows || []).map(rowToRecord);
   }
 
-  distinctJournals(): string[] {
-    const set = new Set<string>();
-    for (const r of this.records) {
-      if (r.journal) {
-        set.add(r.journal);
-      }
-    }
-    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  async getLatestForItem(
+    libraryID: number,
+    itemKey: string,
+  ): Promise<SubmissionRecord | undefined> {
+    return (await this.getForItem(libraryID, itemKey))[0];
+  }
+
+  async getSubmission(id: number): Promise<SubmissionRecord | undefined> {
+    const rows = (await Zotero.DB.queryAsync(
+      `SELECT * FROM ${TABLE_SUBMISSIONS} WHERE id = ?`,
+      [id],
+    )) as any[];
+    return rows && rows.length ? rowToRecord(rows[0]) : undefined;
+  }
+
+  async getEvents(submissionId: number): Promise<StatusEvent[]> {
+    const rows = (await Zotero.DB.queryAsync(
+      `SELECT * FROM ${TABLE_EVENTS} WHERE submissionId = ? ORDER BY date ASC, id ASC`,
+      [submissionId],
+    )) as any[];
+    return (rows || []).map(rowToEvent);
+  }
+
+  async distinctJournals(): Promise<string[]> {
+    const rows = (await Zotero.DB.queryAsync(
+      `SELECT DISTINCT journal FROM ${TABLE_SUBMISSIONS} WHERE journal != ''`,
+    )) as any[];
+    return (rows || [])
+      .map((r) => String(r.journal))
+      .sort((a, b) => a.localeCompare(b));
   }
 
   async create(input: NewSubmissionInput): Promise<SubmissionRecord> {
@@ -195,7 +249,7 @@ class SubmissionDB {
         updatedAt: now,
       };
     });
-    await this.reload();
+    this.notify();
     return created!;
   }
 
@@ -219,7 +273,7 @@ class SubmissionDB {
         [status, Date.now(), submissionId],
       );
     });
-    await this.reload();
+    this.notify();
   }
 
   async updateSubmission(
@@ -236,7 +290,7 @@ class SubmissionDB {
       >
     >,
   ): Promise<void> {
-    const current = this.getSubmission(id);
+    const current = await this.getSubmission(id);
     await Zotero.DB.executeTransaction(async () => {
       await Zotero.DB.queryAsync(
         `UPDATE ${TABLE_SUBMISSIONS} SET
@@ -264,7 +318,7 @@ class SubmissionDB {
         ],
       );
     });
-    await this.reload();
+    this.notify();
   }
 
   /** Record that the user just opened the status page. */
@@ -275,7 +329,43 @@ class SubmissionDB {
         [Date.now(), id],
       );
     });
-    await this.reload();
+    this.notify();
+  }
+
+  /**
+   * Delete one status event; the submission's current status falls back to
+   * the latest remaining event (or "draft" when none is left).
+   */
+  async deleteEvent(eventId: number): Promise<void> {
+    const events = (await Zotero.DB.queryAsync(
+      `SELECT * FROM ${TABLE_EVENTS} WHERE id = ?`,
+      [eventId],
+    )) as any[];
+    if (!events || !events.length) {
+      return;
+    }
+    const event = rowToEvent(events[0]);
+    const remaining = (await Zotero.DB.queryAsync(
+      `SELECT status FROM ${TABLE_EVENTS} WHERE submissionId = ? AND id != ? ORDER BY date ASC, id ASC`,
+      [event.submissionId, eventId],
+    )) as any[];
+    const last =
+      remaining && remaining.length
+        ? String(remaining[remaining.length - 1].status)
+        : "draft";
+    const newStatus: SubmissionStatus = isSubmissionStatus(last)
+      ? (last as SubmissionStatus)
+      : "draft";
+    await Zotero.DB.executeTransaction(async () => {
+      await Zotero.DB.queryAsync(`DELETE FROM ${TABLE_EVENTS} WHERE id = ?`, [
+        eventId,
+      ]);
+      await Zotero.DB.queryAsync(
+        `UPDATE ${TABLE_SUBMISSIONS} SET currentStatus = ?, updatedAt = ? WHERE id = ?`,
+        [newStatus, Date.now(), event.submissionId],
+      );
+    });
+    this.notify();
   }
 
   async deleteSubmission(id: number): Promise<void> {
@@ -289,43 +379,55 @@ class SubmissionDB {
         [id],
       );
     });
-    await this.reload();
+    this.notify();
   }
 
   /** Drop records of permanently deleted items (Notifier "delete" hook). */
   async deleteForItems(
     deleted: Array<{ libraryID: number; itemKey: string }>,
   ): Promise<void> {
-    const targets = deleted.filter(({ libraryID, itemKey }) =>
-      this.byItem.has(itemKeyOf(libraryID, itemKey)),
-    );
-    if (!targets.length) {
+    if (!deleted.length) {
       return;
     }
+    let removed = false;
     await Zotero.DB.executeTransaction(async () => {
-      for (const { libraryID, itemKey } of targets) {
-        await Zotero.DB.queryAsync(
-          `DELETE FROM ${TABLE_EVENTS} WHERE submissionId IN
-             (SELECT id FROM ${TABLE_SUBMISSIONS} WHERE libraryID = ? AND itemKey = ?)`,
+      for (const { libraryID, itemKey } of deleted) {
+        const rows = (await Zotero.DB.queryAsync(
+          `SELECT id FROM ${TABLE_SUBMISSIONS} WHERE libraryID = ? AND itemKey = ?`,
           [libraryID, itemKey],
-        );
-        await Zotero.DB.queryAsync(
-          `DELETE FROM ${TABLE_SUBMISSIONS} WHERE libraryID = ? AND itemKey = ?`,
-          [libraryID, itemKey],
-        );
+        )) as any[];
+        if (!rows || !rows.length) {
+          continue;
+        }
+        removed = true;
+        for (const row of rows) {
+          await Zotero.DB.queryAsync(
+            `DELETE FROM ${TABLE_EVENTS} WHERE submissionId = ?`,
+            [Number(row.id)],
+          );
+          await Zotero.DB.queryAsync(
+            `DELETE FROM ${TABLE_SUBMISSIONS} WHERE id = ?`,
+            [Number(row.id)],
+          );
+        }
       }
     });
-    await this.reload();
+    if (removed) {
+      this.notify();
+    }
   }
 
   async exportJSON(): Promise<string> {
-    await this.reload();
+    const submissions = await this.getAll();
+    const events = (await Zotero.DB.queryAsync(
+      `SELECT * FROM ${TABLE_EVENTS} ORDER BY date ASC, id ASC`,
+    )) as any[];
     return JSON.stringify(
       {
         format: "submission-tracker-v1",
         exportedAt: new Date().toISOString(),
-        submissions: this.records,
-        events: this.events,
+        submissions,
+        events: (events || []).map(rowToEvent),
       },
       null,
       2,
@@ -345,36 +447,36 @@ class SubmissionDB {
       throw new Error("Unrecognized submission-tracker backup file");
     }
     const events: StatusEvent[] = Array.isArray(data.events) ? data.events : [];
-    const records: SubmissionRecord[] = data.submissions.map((r: any) =>
-      rowToRecord(r),
-    );
     let imported = 0;
     let skipped = 0;
-    for (const record of records) {
+    for (const record of data.submissions) {
       const itemID = Zotero.Items.getIDFromLibraryAndKey(
-        record.libraryID,
-        record.itemKey,
+        Number(record.libraryID),
+        String(record.itemKey),
       );
       if (!itemID) {
         skipped += 1;
         continue;
       }
       const created = await this.create({
-        libraryID: record.libraryID,
-        itemKey: record.itemKey,
-        journal: record.journal,
-        status: isSubmissionStatus(record.currentStatus)
-          ? record.currentStatus
+        libraryID: Number(record.libraryID),
+        itemKey: String(record.itemKey),
+        journal: String(record.journal || ""),
+        status: isSubmissionStatus(String(record.currentStatus))
+          ? (String(record.currentStatus) as SubmissionStatus)
           : "draft",
         date:
-          latestEventDate(events, record.id) || todayStrOf(record.createdAt),
-        followUpDate: record.followUpDate,
-        notes: record.notes,
-        statusUrl: record.statusUrl,
-        manuscriptId: record.manuscriptId,
+          latestEventDate(events, Number(record.id)) ||
+          todayStrOf(Number(record.createdAt)),
+        followUpDate: record.followUpDate || null,
+        notes: String(record.notes || ""),
+        statusUrl: record.statusUrl || null,
+        manuscriptId: record.manuscriptId || null,
       });
       // Replay the full event history of the export onto the new record.
-      for (const event of events.filter((e) => e.submissionId === record.id)) {
+      for (const event of events.filter(
+        (e) => e.submissionId === Number(record.id),
+      )) {
         if (!isSubmissionStatus(event.status)) {
           continue;
         }
@@ -384,10 +486,6 @@ class SubmissionDB {
     }
     return [imported, skipped];
   }
-}
-
-function itemKeyOf(libraryID: number, itemKey: string): string {
-  return `${libraryID}:${itemKey}`;
 }
 
 function rowToRecord(row: any): SubmissionRecord {

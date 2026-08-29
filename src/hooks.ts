@@ -5,6 +5,8 @@ import { config } from "../package.json";
 import {
   registerItemPaneSection,
   refreshOpenSections,
+  startSectionHealLoop,
+  stopSectionHealLoop,
 } from "./modules/itemPane";
 import { registerStatusColumn } from "./modules/column";
 import { registerMenus } from "./modules/menu";
@@ -27,7 +29,11 @@ async function onStartup() {
   initLocale();
 
   await db.initialize();
-  db.onChange(() => refreshOpenSections());
+  db.onChange(() => {
+    if ((Zotero as any)[config.addonInstance] === addon) {
+      void refreshOpenSections();
+    }
+  });
   await cleanupOrphans();
 
   registerItemPaneSection();
@@ -46,6 +52,7 @@ async function onStartup() {
   );
 
   startReminderLoop();
+  startSectionHealLoop();
 
   // Mark initialized as true to confirm plugin loading status
   // outside of the plugin (e.g. scaffold testing process)
@@ -91,6 +98,7 @@ async function onMainWindowUnload(win: Window): Promise<void> {
 }
 
 function onShutdown(): void {
+  stopSectionHealLoop();
   closeAllDialogs();
   closeDashboard();
   unregisterNotifier();

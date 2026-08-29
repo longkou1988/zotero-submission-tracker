@@ -9,7 +9,7 @@ import {
 import { db } from "../db";
 import { getString } from "../utils/locale";
 import { openStatusPage } from "./statusPage";
-import { html, statusBadge, statusColor, statusLabel } from "./ui";
+import { buildStatusPicker, html, statusBadge, statusLabel } from "./ui";
 
 /** Mirror the current status into the item's Extra field (opt-in). */
 export async function mirrorStatus(record: SubmissionRecord): Promise<void> {
@@ -40,7 +40,9 @@ export async function mirrorStatus(record: SubmissionRecord): Promise<void> {
 function openStDialog(
   title: string,
   width: number,
-  build: (doc: Document, root: HTMLElement, win: Window) => void,
+  build:
+    | ((doc: Document, root: HTMLElement, win: Window) => void)
+    | ((doc: Document, root: HTMLElement, win: Window) => Promise<void>),
 ): void {
   const helper = new ztoolkit.Dialog(1, 1).addCell(0, 0, {
     tag: "div",
@@ -50,17 +52,19 @@ function openStDialog(
   });
   helper.setDialogData({
     loadCallback: () => {
-      const win = helper.window;
-      injectDialogStyles(win);
-      const root = win.document.getElementById(
-        `${config.addonRef}-dialog-root`,
-      ) as HTMLElement | null;
-      if (root) {
-        build(win.document, root, win);
-      }
-      // The window sizes itself to its (initially empty) content before the
-      // form is built, so grow it to fit the real content afterwards.
-      fitDialogWindow(win, width);
+      void (async () => {
+        const win = helper.window;
+        injectDialogStyles(win);
+        const root = win.document.getElementById(
+          `${config.addonRef}-dialog-root`,
+        ) as HTMLElement | null;
+        if (root) {
+          await build(win.document, root, win);
+        }
+        // The window sizes itself to its (initially empty) content before the
+        // form is built, so grow it to fit the real content afterwards.
+        fitDialogWindow(win, width);
+      })();
     },
     unloadCallback: () => {
       const dialogs = addon.data.dialogs;
@@ -113,151 +117,150 @@ function injectDialogStyles(win: Window): void {
 /* ------------------------------------------------------------------ */
 
 export async function openCreateDialog(items: Zotero.Item[]): Promise<void> {
-  openStDialog(getString("dialog-create-title"), 520, (doc, root, win) => {
-    const header = html(doc, "div", "st-dialog-header");
-    const h2 = html(doc, "h2", "st-dialog-title");
-    h2.textContent =
-      items.length > 1
-        ? getString("dialog-multi-items", { args: { count: items.length } })
-        : items[0].getField("title") || "";
-    header.appendChild(h2);
-    root.appendChild(header);
+  openStDialog(
+    getString("dialog-create-title"),
+    520,
+    async (doc, root, win) => {
+      const header = html(doc, "div", "st-dialog-header");
+      const h2 = html(doc, "h2", "st-dialog-title");
+      h2.textContent =
+        items.length > 1
+          ? getString("dialog-multi-items", { args: { count: items.length } })
+          : items[0].getField("title") || "";
+      header.appendChild(h2);
+      root.appendChild(header);
 
-    const form = html(doc, "div", "st-form");
+      const form = html(doc, "div", "st-form");
 
-    const journalInput = html(doc, "input", "st-input") as HTMLInputElement;
-    journalInput.type = "text";
-    journalInput.placeholder = getString("dialog-journal-placeholder");
-    const dataList = html(doc, "datalist") as HTMLDataListElement;
-    dataList.id = `${config.addonRef}-journal-list`;
-    for (const journal of db.distinctJournals()) {
-      const option = doc.createElementNS(
-        "http://www.w3.org/1999/xhtml",
-        "option",
-      ) as HTMLOptionElement;
-      option.value = journal;
-      dataList.appendChild(option);
-    }
-    journalInput.setAttribute("list", dataList.id);
-    form.appendChild(
-      buildField(doc, getString("dialog-journal"), [journalInput, dataList]),
-    );
-
-    const statusDotEl = html(doc, "span", "st-dot");
-    statusDotEl.style.setProperty(
-      "--st-color",
-      statusColor("submitted" as SubmissionStatus),
-    );
-    const statusSelect = buildStatusSelect(doc, "submitted");
-    statusSelect.addEventListener("change", () => {
-      statusDotEl.style.setProperty(
-        "--st-color",
-        statusColor(statusSelect.value as SubmissionStatus),
+      const journalInput = html(doc, "input", "st-input") as HTMLInputElement;
+      journalInput.type = "text";
+      journalInput.placeholder = getString("dialog-journal-placeholder");
+      const dataList = html(doc, "datalist") as HTMLDataListElement;
+      dataList.id = `${config.addonRef}-journal-list`;
+      for (const journal of await db.distinctJournals()) {
+        const option = doc.createElementNS(
+          "http://www.w3.org/1999/xhtml",
+          "option",
+        ) as HTMLOptionElement;
+        option.value = journal;
+        dataList.appendChild(option);
+      }
+      journalInput.setAttribute("list", dataList.id);
+      form.appendChild(
+        buildField(doc, getString("dialog-journal"), [journalInput, dataList]),
       );
-    });
-    const statusRow = html(doc, "div", "st-select-row");
-    statusRow.append(statusDotEl, statusSelect);
-    form.appendChild(buildField(doc, getString("dialog-status"), [statusRow]));
 
-    const dateInput = html(doc, "input", "st-input") as HTMLInputElement;
-    dateInput.type = "date";
-    dateInput.value = todayStr();
-    form.appendChild(buildField(doc, getString("dialog-date"), [dateInput]));
+      const statusPicker = buildStatusPicker(doc, "submitted");
+      form.appendChild(
+        buildField(doc, getString("dialog-status"), [statusPicker.el]),
+      );
 
-    const followInput = html(doc, "input", "st-input") as HTMLInputElement;
-    followInput.type = "date";
-    form.appendChild(
-      buildField(
+      const dateInput = html(doc, "input", "st-input") as HTMLInputElement;
+      dateInput.type = "date";
+      dateInput.value = todayStr();
+      form.appendChild(buildField(doc, getString("dialog-date"), [dateInput]));
+
+      const followInput = html(doc, "input", "st-input") as HTMLInputElement;
+      followInput.type = "date";
+      form.appendChild(
+        buildField(
+          doc,
+          getString("dialog-followup"),
+          [followInput],
+          getString("dialog-followup-hint"),
+        ),
+      );
+
+      const notesInput = html(
         doc,
-        getString("dialog-followup"),
-        [followInput],
-        getString("dialog-followup-hint"),
-      ),
-    );
+        "textarea",
+        "st-input st-textarea",
+      ) as HTMLTextAreaElement;
+      notesInput.rows = 3;
+      form.appendChild(
+        buildField(doc, getString("dialog-notes"), [notesInput]),
+      );
 
-    const notesInput = html(
-      doc,
-      "textarea",
-      "st-input st-textarea",
-    ) as HTMLTextAreaElement;
-    notesInput.rows = 3;
-    form.appendChild(buildField(doc, getString("dialog-notes"), [notesInput]));
+      const statusUrlInput = html(doc, "input", "st-input") as HTMLInputElement;
+      statusUrlInput.type = "url";
+      statusUrlInput.placeholder = "https://…";
+      form.appendChild(
+        buildField(
+          doc,
+          getString("dialog-status-url"),
+          [statusUrlInput],
+          getString("dialog-status-url-hint"),
+        ),
+      );
 
-    const statusUrlInput = html(doc, "input", "st-input") as HTMLInputElement;
-    statusUrlInput.type = "url";
-    statusUrlInput.placeholder = "https://…";
-    form.appendChild(
-      buildField(
+      const manuscriptInput = html(
         doc,
-        getString("dialog-status-url"),
-        [statusUrlInput],
-        getString("dialog-status-url-hint"),
-      ),
-    );
+        "input",
+        "st-input",
+      ) as HTMLInputElement;
+      manuscriptInput.type = "text";
+      manuscriptInput.placeholder = "JSR-2026-0812";
+      form.appendChild(
+        buildField(doc, getString("dialog-manuscript-id"), [manuscriptInput]),
+      );
 
-    const manuscriptInput = html(doc, "input", "st-input") as HTMLInputElement;
-    manuscriptInput.type = "text";
-    manuscriptInput.placeholder = "JSR-2026-0812";
-    form.appendChild(
-      buildField(doc, getString("dialog-manuscript-id"), [manuscriptInput]),
-    );
+      root.appendChild(form);
 
-    root.appendChild(form);
+      const footer = html(doc, "div", "st-dialog-footer");
+      const cancel = html(doc, "button", "st-btn") as HTMLButtonElement;
+      cancel.textContent = getString("dialog-cancel");
+      const save = html(
+        doc,
+        "button",
+        "st-btn st-btn--primary",
+      ) as HTMLButtonElement;
+      save.textContent = getString("dialog-save");
+      footer.append(cancel, save);
+      root.appendChild(footer);
 
-    const footer = html(doc, "div", "st-dialog-footer");
-    const cancel = html(doc, "button", "st-btn") as HTMLButtonElement;
-    cancel.textContent = getString("dialog-cancel");
-    const save = html(
-      doc,
-      "button",
-      "st-btn st-btn--primary",
-    ) as HTMLButtonElement;
-    save.textContent = getString("dialog-save");
-    footer.append(cancel, save);
-    root.appendChild(footer);
-
-    cancel.addEventListener("click", () => {
-      try {
-        win.close();
-      } catch (e) {
-        ztoolkit.log("submissiontracker: close dialog failed", e);
-      }
-    });
-    save.addEventListener("click", async () => {
-      const journal = journalInput.value.trim();
-      if (!journal) {
-        journalInput.classList.add("st-input--error");
-        journalInput.focus();
-        return;
-      }
-      save.disabled = true;
-      try {
-        const date = dateInput.value || todayStr();
-        for (const item of items) {
-          const record = await db.create({
-            libraryID: item.libraryID,
-            itemKey: item.key,
-            journal,
-            status: statusSelect.value as SubmissionStatus,
-            date,
-            followUpDate: followInput.value || null,
-            notes: notesInput.value.trim(),
-            statusUrl: statusUrlInput.value.trim() || null,
-            manuscriptId: manuscriptInput.value.trim() || null,
-          });
-          await mirrorStatus(record);
+      cancel.addEventListener("click", () => {
+        try {
+          win.close();
+        } catch (e) {
+          ztoolkit.log("submissiontracker: close dialog failed", e);
         }
-      } finally {
-        save.disabled = false;
-      }
-      try {
-        win.close();
-      } catch (e) {
-        ztoolkit.log("submissiontracker: close dialog failed", e);
-      }
-    });
-    journalInput.focus();
-  });
+      });
+      save.addEventListener("click", async () => {
+        const journal = journalInput.value.trim();
+        if (!journal) {
+          journalInput.classList.add("st-input--error");
+          journalInput.focus();
+          return;
+        }
+        save.disabled = true;
+        try {
+          const date = dateInput.value || todayStr();
+          for (const item of items) {
+            const record = await db.create({
+              libraryID: item.libraryID,
+              itemKey: item.key,
+              journal,
+              status: statusPicker.value,
+              date,
+              followUpDate: followInput.value || null,
+              notes: notesInput.value.trim(),
+              statusUrl: statusUrlInput.value.trim() || null,
+              manuscriptId: manuscriptInput.value.trim() || null,
+            });
+            await mirrorStatus(record);
+          }
+        } finally {
+          save.disabled = false;
+        }
+        try {
+          win.close();
+        } catch (e) {
+          ztoolkit.log("submissiontracker: close dialog failed", e);
+        }
+      });
+      journalInput.focus();
+    },
+  );
 }
 
 /* ------------------------------------------------------------------ */
@@ -266,8 +269,8 @@ export async function openCreateDialog(items: Zotero.Item[]): Promise<void> {
 
 export function openDetailDialog(record: SubmissionRecord): void {
   openStDialog(getString("dialog-detail-title"), 560, (doc, root, win) => {
-    const render = () => {
-      const fresh = db.getSubmission(record.id);
+    const render = async () => {
+      const fresh = await db.getSubmission(record.id);
       if (!fresh) {
         try {
           win.close();
@@ -277,20 +280,20 @@ export function openDetailDialog(record: SubmissionRecord): void {
         return;
       }
       root.textContent = "";
-      buildDetail(doc, root, win, fresh, render);
+      await buildDetail(doc, root, win, fresh, render);
       fitDialogWindow(win, 560);
     };
-    render();
+    void render();
   });
 }
 
-function buildDetail(
+async function buildDetail(
   doc: Document,
   root: HTMLElement,
   win: Window,
   record: SubmissionRecord,
-  rerender: () => void,
-): void {
+  rerender: () => Promise<void> | void,
+): Promise<void> {
   const title = getItemTitleText(record);
   const header = html(doc, "div", "st-dialog-header");
   const h2 = html(doc, "h2", "st-dialog-title");
@@ -307,7 +310,7 @@ function buildDetail(
   const historyTitle = html(doc, "h3", "st-dialog-h3");
   historyTitle.textContent = getString("dialog-timeline");
   history.appendChild(historyTitle);
-  const events = db.getEvents(record.id).slice().reverse();
+  const events = (await db.getEvents(record.id)).slice().reverse();
   const timeline = html(doc, "div", "st-history-list");
   for (const event of events) {
     const row = html(doc, "div", "st-history-row");
@@ -319,6 +322,25 @@ function buildDetail(
       note.textContent = event.note;
       row.appendChild(note);
     }
+    const del = html(
+      doc,
+      "button",
+      "st-btn st-btn--sm st-history-del",
+    ) as HTMLButtonElement;
+    del.textContent = "✕";
+    del.title = getString("dialog-delete-event");
+    del.addEventListener("click", async () => {
+      if (!del.dataset.armed) {
+        del.dataset.armed = "1";
+        del.classList.add("st-history-del--armed");
+        del.textContent = getString("dialog-delete-confirm");
+        return;
+      }
+      del.disabled = true;
+      await db.deleteEvent(event.id);
+      rerender();
+    });
+    row.appendChild(del);
     timeline.appendChild(row);
   }
   history.appendChild(timeline);
@@ -330,16 +352,10 @@ function buildDetail(
   quickTitle.textContent = getString("dialog-add-event");
   quick.appendChild(quickTitle);
 
+  const quickPicker = buildStatusPicker(doc, record.currentStatus);
+  quick.appendChild(quickPicker.el);
+
   const quickRow = html(doc, "div", "st-quick-row");
-  const quickDot = html(doc, "span", "st-dot");
-  quickDot.style.setProperty("--st-color", statusColor(record.currentStatus));
-  const quickStatus = buildStatusSelect(doc, record.currentStatus);
-  quickStatus.addEventListener("change", () => {
-    quickDot.style.setProperty(
-      "--st-color",
-      statusColor(quickStatus.value as SubmissionStatus),
-    );
-  });
   const quickDate = html(doc, "input", "st-input") as HTMLInputElement;
   quickDate.type = "date";
   quickDate.value = todayStr();
@@ -352,7 +368,7 @@ function buildDetail(
     "st-btn st-btn--primary",
   ) as HTMLButtonElement;
   quickBtn.textContent = getString("dialog-add-event-btn");
-  quickRow.append(quickDot, quickStatus, quickDate, quickNote, quickBtn);
+  quickRow.append(quickDate, quickNote, quickBtn);
   quick.appendChild(quickRow);
   root.appendChild(quick);
 
@@ -361,18 +377,18 @@ function buildDetail(
     try {
       await db.addEvent(
         record.id,
-        quickStatus.value as SubmissionStatus,
+        quickPicker.value,
         quickDate.value || todayStr(),
         quickNote.value.trim(),
       );
-      const fresh = db.getSubmission(record.id);
+      const fresh = await db.getSubmission(record.id);
       if (fresh) {
         await mirrorStatus(fresh);
       }
     } finally {
       quickBtn.disabled = false;
     }
-    rerender();
+    await rerender();
   });
 
   /* --- editable fields --- */
@@ -476,7 +492,7 @@ function buildDetail(
         statusUrl: statusUrlInput.value.trim() || null,
         manuscriptId: manuscriptInput.value.trim() || null,
       });
-      const fresh = db.getSubmission(record.id);
+      const fresh = await db.getSubmission(record.id);
       if (fresh) {
         await mirrorStatus(fresh);
       }
@@ -531,27 +547,6 @@ function buildField(
     field.appendChild(hintEl);
   }
   return field;
-}
-
-function buildStatusSelect(
-  doc: Document,
-  selected: SubmissionStatus,
-): HTMLSelectElement {
-  const select = html(doc, "select", "st-select") as HTMLSelectElement;
-  for (const status of STATUS_LIST) {
-    const option = doc.createElementNS(
-      "http://www.w3.org/1999/xhtml",
-      "option",
-    ) as HTMLOptionElement;
-    option.value = status;
-    option.textContent = statusLabel(status);
-    if (status === selected) {
-      option.selected = true;
-    }
-    select.appendChild(option);
-  }
-  select.value = selected;
-  return select;
 }
 
 export function closeAllDialogs(): void {

@@ -11,8 +11,8 @@ export async function registerStatusColumn(): Promise<void> {
     label: getString("column-status-label"),
     iconPath: `chrome://${config.addonRef}/content/icons/section.svg`,
     dataProvider: (item: Zotero.Item) => {
-      const record = db.getLatestForItem(item.libraryID, item.key);
-      return record ? record.currentStatus : "";
+      // Synchronous provider: reads the sweep-refreshed mirror.
+      return db.getColumnStatusSync(item.libraryID, item.key) || "";
     },
     renderCell: (
       _index: number,
