@@ -3,12 +3,14 @@ import { db } from "../db";
 import {
   ACTIVE_STATUSES,
   daysFromToday,
+  STALE_CHECK_DAYS,
   StatusEvent,
   SubmissionRecord,
   SubmissionStatus,
 } from "../types";
 import { getString } from "../utils/locale";
 import { openDetailDialog } from "./dialog";
+import { openStatusPage } from "./statusPage";
 import { getItemTitle, html, statusBadge, statusLabel } from "./ui";
 
 const TAB_ID = `${config.addonRef}-dashboard`;
@@ -316,6 +318,16 @@ function buildRow(doc: Document, record: SubmissionRecord): HTMLElement {
   if (!getItemTitle(record.libraryID, record.itemKey)) {
     row.classList.add("st-row--missing");
   }
+  if (record.statusUrl && isCheckStale(record.lastCheckedAt)) {
+    row.classList.add("st-row--stale");
+    row.title = getString("dashboard-last-checked", {
+      args: {
+        date: record.lastCheckedAt
+          ? formatDateTime(record.lastCheckedAt)
+          : getString("dashboard-never-checked"),
+      },
+    });
+  }
 
   const badge = statusBadge(doc, record.currentStatus);
 
@@ -344,6 +356,21 @@ function buildRow(doc: Document, record: SubmissionRecord): HTMLElement {
     }
   }
 
+  if (record.statusUrl) {
+    const statusBtn = html(
+      doc,
+      "button",
+      "st-btn st-btn--sm",
+    ) as HTMLButtonElement;
+    statusBtn.textContent = getString("dashboard-status-page");
+    statusBtn.title = record.statusUrl;
+    statusBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      openStatusPage(record);
+    });
+    row.append(statusBtn);
+  }
+
   const detailBtn = html(doc, "button", "st-btn st-btn--sm");
   detailBtn.textContent = getString("dashboard-open-detail");
   detailBtn.addEventListener("click", (e) => {
@@ -353,8 +380,24 @@ function buildRow(doc: Document, record: SubmissionRecord): HTMLElement {
 
   row.append(badge, title, journal, updated, follow, detailBtn);
   row.addEventListener("click", () => jumpToItem(record));
-  row.addEventListener("click", () => jumpToItem(record));
   return row;
+}
+
+/** A status page counts as stale when never checked or checked long ago. */
+function isCheckStale(lastCheckedAt: number | null): boolean {
+  if (!lastCheckedAt) {
+    return true;
+  }
+  return Date.now() - lastCheckedAt > STALE_CHECK_DAYS * 86400000;
+}
+
+function formatDateTime(epochMs: number): string {
+  const d = new Date(epochMs);
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mm = String(d.getMinutes()).padStart(2, "0");
+  return `${d.getFullYear()}-${m}-${day} ${hh}:${mm}`;
 }
 
 function jumpToItem(record: SubmissionRecord): void {
@@ -392,7 +435,9 @@ async function pickFile(
 async function exportCSVFile(doc: Document): Promise<void> {
   const records = db.getAll();
   const escape = (v: string) => `"${String(v).replace(/"/g, '""')}"`;
-  const lines = ["Title,Journal,Status,LastEvent,FollowUp,Notes"];
+  const lines = [
+    "Title,Journal,Status,LastEvent,FollowUp,ManuscriptID,LastChecked,StatusURL,Notes",
+  ];
   for (const record of records) {
     const events = db.getEvents(record.id);
     const last = events[events.length - 1];
@@ -403,6 +448,9 @@ async function exportCSVFile(doc: Document): Promise<void> {
         statusLabel(record.currentStatus),
         last ? last.date : "",
         record.followUpDate || "",
+        record.manuscriptId || "",
+        record.lastCheckedAt ? formatDateTime(record.lastCheckedAt) : "",
+        record.statusUrl || "",
         record.notes,
       ]
         .map(escape)

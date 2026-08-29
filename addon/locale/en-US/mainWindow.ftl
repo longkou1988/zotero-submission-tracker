@@ -78,3 +78,17 @@ stat-withdrawn = Withdrawn
 
 # Reminders
 reminder-header = { $count } manuscripts need follow-up
+
+# Status page quick entry (v0.3.0)
+dialog-status-url = Status Page URL
+dialog-status-url-hint = Optional; open it from the dashboard anytime, with check timestamps
+dialog-manuscript-id = Manuscript ID
+statuspage-title = Submission Status Page
+statuspage-open = Open Status Page
+statuspage-reload = Reload
+statuspage-external = Open in System Browser
+statuspage-open-detail = Open Submission Details
+dashboard-status-page = Status Page
+dashboard-last-checked = Last checked: { $date }
+dashboard-never-checked = Status page never checked
+statuspage-tab-title = Status Page · { $journal }

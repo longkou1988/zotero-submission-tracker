@@ -189,3 +189,13 @@
   line-height: 1.7;
   opacity: 0.55;
 }
+
+/* rows with a stale status page */
+
+.st-row--stale {
+  background: rgba(255, 197, 66, 0.1);
+}
+
+.st-row--stale:hover {
+  background: rgba(255, 197, 66, 0.16);
+}

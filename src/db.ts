@@ -54,7 +54,30 @@ class SubmissionDB {
          ON ${TABLE_EVENTS} (submissionId)`,
       );
     });
+    await this.migrate();
     await this.reload();
+  }
+
+  /** Idempotent column migrations for tables created before 0.3.0. */
+  private async migrate(): Promise<void> {
+    const migrations: Array<[string, string]> = [
+      ["statusUrl", "TEXT"],
+      ["manuscriptId", "TEXT"],
+      ["lastCheckedAt", "INTEGER"],
+    ];
+    const existing = (await Zotero.DB.getColumns(TABLE_SUBMISSIONS)) as any;
+    const names = new Set(
+      (Array.isArray(existing) ? existing : []).map((c: any) =>
+        String(c?.name || c),
+      ),
+    );
+    for (const [column, type] of migrations) {
+      if (!names.has(column)) {
+        await Zotero.DB.queryAsync(
+          `ALTER TABLE ${TABLE_SUBMISSIONS} ADD COLUMN ${column} ${type}`,
+        );
+      }
+    }
   }
 
   onChange(listener: () => void): () => void {
@@ -133,8 +156,9 @@ class SubmissionDB {
     await Zotero.DB.executeTransaction(async () => {
       await Zotero.DB.queryAsync(
         `INSERT INTO ${TABLE_SUBMISSIONS}
-         (libraryID, itemKey, journal, currentStatus, followUpDate, notes, createdAt, updatedAt)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+         (libraryID, itemKey, journal, currentStatus, followUpDate, notes,
+          statusUrl, manuscriptId, createdAt, updatedAt)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           input.libraryID,
           input.itemKey,
@@ -142,6 +166,8 @@ class SubmissionDB {
           input.status,
           input.followUpDate || null,
           input.notes || "",
+          input.statusUrl || null,
+          input.manuscriptId || null,
           now,
           now,
         ],
@@ -162,6 +188,9 @@ class SubmissionDB {
         currentStatus: input.status,
         followUpDate: input.followUpDate || null,
         notes: input.notes || "",
+        statusUrl: input.statusUrl || null,
+        manuscriptId: input.manuscriptId || null,
+        lastCheckedAt: null,
         createdAt: now,
         updatedAt: now,
       };
@@ -198,10 +227,16 @@ class SubmissionDB {
     fields: Partial<
       Pick<
         SubmissionRecord,
-        "journal" | "followUpDate" | "notes" | "currentStatus"
+        | "journal"
+        | "followUpDate"
+        | "notes"
+        | "currentStatus"
+        | "statusUrl"
+        | "manuscriptId"
       >
     >,
   ): Promise<void> {
+    const current = this.getSubmission(id);
     await Zotero.DB.executeTransaction(async () => {
       await Zotero.DB.queryAsync(
         `UPDATE ${TABLE_SUBMISSIONS} SET
@@ -209,6 +244,8 @@ class SubmissionDB {
            followUpDate = ?,
            notes = ?,
            currentStatus = ?,
+           statusUrl = ?,
+           manuscriptId = ?,
            updatedAt = ?
          WHERE id = ?`,
         [
@@ -216,9 +253,26 @@ class SubmissionDB {
           fields.followUpDate || null,
           fields.notes,
           fields.currentStatus,
+          fields.statusUrl !== undefined
+            ? fields.statusUrl || null
+            : current?.statusUrl || null,
+          fields.manuscriptId !== undefined
+            ? fields.manuscriptId || null
+            : current?.manuscriptId || null,
           Date.now(),
           id,
         ],
+      );
+    });
+    await this.reload();
+  }
+
+  /** Record that the user just opened the status page. */
+  async updateCheckedAt(id: number): Promise<void> {
+    await Zotero.DB.executeTransaction(async () => {
+      await Zotero.DB.queryAsync(
+        `UPDATE ${TABLE_SUBMISSIONS} SET lastCheckedAt = ? WHERE id = ?`,
+        [Date.now(), id],
       );
     });
     await this.reload();
@@ -316,6 +370,8 @@ class SubmissionDB {
           latestEventDate(events, record.id) || todayStrOf(record.createdAt),
         followUpDate: record.followUpDate,
         notes: record.notes,
+        statusUrl: record.statusUrl,
+        manuscriptId: record.manuscriptId,
       });
       // Replay the full event history of the export onto the new record.
       for (const event of events.filter((e) => e.submissionId === record.id)) {
@@ -345,6 +401,9 @@ function rowToRecord(row: any): SubmissionRecord {
       : "draft",
     followUpDate: row.followUpDate ? String(row.followUpDate) : null,
     notes: String(row.notes || ""),
+    statusUrl: row.statusUrl ? String(row.statusUrl) : null,
+    manuscriptId: row.manuscriptId ? String(row.manuscriptId) : null,
+    lastCheckedAt: row.lastCheckedAt ? Number(row.lastCheckedAt) : null,
     createdAt: Number(row.createdAt),
     updatedAt: Number(row.updatedAt),
   };

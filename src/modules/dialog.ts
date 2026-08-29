@@ -8,6 +8,7 @@ import {
 } from "../types";
 import { db } from "../db";
 import { getString } from "../utils/locale";
+import { openStatusPage } from "./statusPage";
 import { html, statusBadge, statusColor, statusLabel } from "./ui";
 
 /** Mirror the current status into the item's Extra field (opt-in). */
@@ -182,6 +183,25 @@ export async function openCreateDialog(items: Zotero.Item[]): Promise<void> {
     notesInput.rows = 3;
     form.appendChild(buildField(doc, getString("dialog-notes"), [notesInput]));
 
+    const statusUrlInput = html(doc, "input", "st-input") as HTMLInputElement;
+    statusUrlInput.type = "url";
+    statusUrlInput.placeholder = "https://…";
+    form.appendChild(
+      buildField(
+        doc,
+        getString("dialog-status-url"),
+        [statusUrlInput],
+        getString("dialog-status-url-hint"),
+      ),
+    );
+
+    const manuscriptInput = html(doc, "input", "st-input") as HTMLInputElement;
+    manuscriptInput.type = "text";
+    manuscriptInput.placeholder = "JSR-2026-0812";
+    form.appendChild(
+      buildField(doc, getString("dialog-manuscript-id"), [manuscriptInput]),
+    );
+
     root.appendChild(form);
 
     const footer = html(doc, "div", "st-dialog-footer");
@@ -222,6 +242,8 @@ export async function openCreateDialog(items: Zotero.Item[]): Promise<void> {
             date,
             followUpDate: followInput.value || null,
             notes: notesInput.value.trim(),
+            statusUrl: statusUrlInput.value.trim() || null,
+            manuscriptId: manuscriptInput.value.trim() || null,
           });
           await mirrorStatus(record);
         }
@@ -381,6 +403,31 @@ function buildDetail(
   editForm.appendChild(
     buildField(doc, getString("dialog-notes"), [notesInput]),
   );
+
+  const statusUrlInput = html(doc, "input", "st-input") as HTMLInputElement;
+  statusUrlInput.type = "url";
+  statusUrlInput.placeholder = "https://…";
+  if (record.statusUrl) {
+    statusUrlInput.value = record.statusUrl;
+  }
+  editForm.appendChild(
+    buildField(
+      doc,
+      getString("dialog-status-url"),
+      [statusUrlInput],
+      getString("dialog-status-url-hint"),
+    ),
+  );
+
+  const manuscriptInput = html(doc, "input", "st-input") as HTMLInputElement;
+  manuscriptInput.type = "text";
+  manuscriptInput.placeholder = "JSR-2026-0812";
+  if (record.manuscriptId) {
+    manuscriptInput.value = record.manuscriptId;
+  }
+  editForm.appendChild(
+    buildField(doc, getString("dialog-manuscript-id"), [manuscriptInput]),
+  );
   root.appendChild(editForm);
 
   const footer = html(doc, "div", "st-dialog-footer");
@@ -400,6 +447,17 @@ function buildDetail(
       ztoolkit.log("submissiontracker: close dialog failed", e);
     }
   });
+  const openStatus = html(doc, "button", "st-btn") as HTMLButtonElement;
+  openStatus.textContent = getString("statuspage-open");
+  openStatus.addEventListener("click", () => {
+    const url = statusUrlInput.value.trim();
+    if (!url) {
+      statusUrlInput.classList.add("st-input--error");
+      statusUrlInput.focus();
+      return;
+    }
+    openStatusPage({ ...record, statusUrl: url });
+  });
   const spacer = html(doc, "div", "st-flex-spacer");
   const save = html(
     doc,
@@ -415,6 +473,8 @@ function buildDetail(
         followUpDate: followInput.value || null,
         notes: notesInput.value.trim(),
         currentStatus: record.currentStatus,
+        statusUrl: statusUrlInput.value.trim() || null,
+        manuscriptId: manuscriptInput.value.trim() || null,
       });
       const fresh = db.getSubmission(record.id);
       if (fresh) {

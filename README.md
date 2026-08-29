@@ -11,9 +11,9 @@ Track journal submission records for your manuscripts right inside Zotero: multi
 | --------------------------------------- | -------------------------------------- |
 | ![Dashboard](screenshots/dashboard.png) | ![Item pane](screenshots/itempane.png) |
 
-| 添加投稿 Add Submission                          |
-| ------------------------------------------------ |
-| ![Add submission dialog](screenshots/dialog.png) |
+| 添加投稿 Add Submission                          | 状态页快捷入口 Status Page Tab             |
+| ------------------------------------------------ | ------------------------------------------ |
+| ![Add submission dialog](screenshots/dialog.png) | ![Status page](screenshots/statuspage.png) |
 
 ---
 
@@ -26,6 +26,7 @@ Track journal submission records for your manuscripts right inside Zotero: multi
 - **条目列表「投稿状态」列**：彩色状态徽章一目了然（右键列标题 → 在列选择器中开启）
 - **投稿管理面板**：在 Zotero 内以标签页打开——统计卡片（全部 / 进行中 / 待跟进 / 录用 / 拒稿 / 撤稿）、搜索、状态筛选，点击记录跳转到对应文献
 - **状态流转留痕**：草稿 → 已投稿 → 编辑部审核 → 外审中 → 大修 / 小修 → 录用 / 拒稿 / 撤稿，每次变更记录日期与备注，完整历史可回溯
+- **状态页快捷入口（v0.3.0）**：为每条投稿保存投稿系统状态页网址与稿件编号；在 Zotero 内以标签页直接打开状态页（无需切换窗口），自动记录最近查看时间，超过 7 天未查看的投稿会淡黄提示
 - **跟进提醒**：为投稿设置跟进日期，到期或逾期时启动 Zotero 会弹出提醒
 - **期刊名自动补全**：基于历史投稿记录
 - **导入 / 导出**：CSV（UTF-8 BOM，Excel 友好）与 JSON 备份 / 恢复
@@ -41,13 +42,15 @@ Track journal submission records for your manuscripts right inside Zotero: multi
 
 1. **添加投稿**：选中文献 → 右键「投稿记录」→「添加投稿记录」，填写期刊（自动补全）、状态、日期与跟进日期
 2. **更新状态**：收到期刊回复后，在条目面板「投稿记录」区块点击期刊名或「详情」→「记录状态变更」，选择新状态并写备注
-3. **全局管理**：菜单栏 工具 → 打开投稿管理，查看统计、筛选和跟进
-4. **设置**：Zotero 设置 → Submission Tracker——跟进提醒开关、可选「同步状态摘要到条目 Extra 字段」
+3. **查看真实状态**：在添加/详情对话框中填写投稿系统状态页网址，之后在投稿管理面板点击「状态页」即可在 Zotero 内直接打开期刊系统页面查看最新状态，再回到详情对话框手动记录状态变更
+4. **全局管理**：菜单栏 工具 → 打开投稿管理，查看统计、筛选和跟进
+5. **设置**：Zotero 设置 → Submission Tracker——跟进提醒开关、可选「同步状态摘要到条目 Extra 字段」
 
 ### 数据与隐私
 
 - 投稿记录保存在本机 Zotero 数据目录的 `zotero.sqlite` 中的两张插件表（`submissiontrackerSubmissions` / `submissiontrackerEvents`），**不上传任何数据、不发任何网络请求**（插件更新检查除外）
 - 数据不随 Zotero 官方同步；换机器请使用「导出 JSON → 导入 JSON」迁移
+- 插件本身零网络请求；唯一的联网行为是你主动点击「状态页」在 Zotero 内打开期刊投稿系统页面（相当于用浏览器访问）
 
 ### 从旧版本（≤ 0.1.25）升级
 
@@ -75,6 +78,7 @@ npm run build          # 产出 .scaffold/build/*.xpi
 - **Item list "Submission Status" column**: colored status badges (enable via the column picker)
 - **Submission dashboard**: opens as a tab inside Zotero — stat cards (total / in progress / to follow up / accepted / rejected / withdrawn), search, status filters, click a row to jump to the item
 - **Full audit trail**: Draft → Submitted → With Editor → Under Review → Major/Minor Revision → Accepted / Rejected / Withdrawn, each change recorded with date and note
+- **Status page quick entry (v0.3.0)**: save the submission system's status page URL and manuscript ID per record; open the page in a tab inside Zotero (no window switching), with automatic last-checked timestamps and a soft yellow hint after 7 idle days
 - **Follow-up reminders**: set a follow-up date per submission; Zotero shows a reminder when it is due
 - **Journal name autocomplete** based on your history
 - **Import / export**: CSV (UTF-8 BOM, Excel friendly) and JSON backup / restore
@@ -90,13 +94,15 @@ npm run build          # 产出 .scaffold/build/*.xpi
 
 1. **Add a submission**: select an item → right-click → "Submission Records" → "Add Submission Record"
 2. **Update status**: when the journal replies, open the record from the item pane section (click the journal name or "Details") → "Record Status Update"
-3. **Dashboard**: Tools → Open Submission Dashboard for stats, filters and follow-ups
-4. **Preferences**: Zotero Settings → Submission Tracker — reminder toggle and an optional status mirror into the item "Extra" field
+3. **Check the real status**: save the status page URL in the add/details dialog, then hit "Status Page" on the dashboard to open the journal system in a Zotero tab; record what you see manually via the details dialog
+4. **Dashboard**: Tools → Open Submission Dashboard for stats, filters and follow-ups
+5. **Preferences**: Zotero Settings → Submission Tracker — reminder toggle and an optional status mirror into the item "Extra" field
 
 ### Data & privacy
 
 - Records live in two plugin tables (`submissiontrackerSubmissions` / `submissiontrackerEvents`) inside your local `zotero.sqlite`. **No data leaves your machine**; no network requests except plugin update checks
 - Data does not sync with Zotero's official sync; migrate with "Export JSON → Import JSON"
+- The plugin itself makes zero network requests; the only online action is you opening the journal's status page in a tab (same as visiting it in a browser)
 
 ### Upgrading from ≤ 0.1.25
 

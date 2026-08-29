@@ -57,6 +57,12 @@ export interface SubmissionRecord {
   /** ISO date string `YYYY-MM-DD`, or null when not set. */
   followUpDate: string | null;
   notes: string;
+  /** Submission system status page URL, or null when not set. */
+  statusUrl: string | null;
+  /** Manuscript ID assigned by the journal (e.g. JSR-2026-0812). */
+  manuscriptId: string | null;
+  /** Epoch ms of the last time the status page was opened, or null. */
+  lastCheckedAt: number | null;
   createdAt: number;
   updatedAt: number;
 }
@@ -80,7 +86,12 @@ export interface NewSubmissionInput {
   date: string;
   followUpDate?: string | null;
   notes?: string;
+  statusUrl?: string | null;
+  manuscriptId?: string | null;
 }
+
+/** Days after which an unchecked status page is highlighted as stale. */
+export const STALE_CHECK_DAYS = 7;
 
 export function todayStr(): string {
   const d = new Date();
