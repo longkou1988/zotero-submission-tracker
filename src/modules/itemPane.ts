@@ -180,6 +180,14 @@ async function sweepTick(): Promise<void> {
         if (!stale) {
           continue;
         }
+        const dbg =
+          (addon.data as any).renderLog || ((addon.data as any).renderLog = []);
+        dbg.push(
+          `sweep rebind sec=${currentItem.id} prev=${body.dataset.stRenderedItem || "none"}`,
+        );
+        if (dbg.length > 10) {
+          dbg.shift();
+        }
         body.textContent = "";
         await renderSection(body, currentItem);
         const latest = await db.getLatestForItem(
@@ -190,6 +198,14 @@ async function sweepTick(): Promise<void> {
           el._section.summary = latest ? statusLabel(latest.currentStatus) : "";
         }
       } catch (e) {
+        const dbg =
+          (addon.data as any).renderLog || ((addon.data as any).renderLog = []);
+        dbg.push(
+          `SWEEP-ERR: ${String((e as any)?.message || e).slice(0, 200)}`,
+        );
+        if (dbg.length > 8) {
+          dbg.shift();
+        }
         ztoolkit.log("submissiontracker: section sweep failed", e);
       }
     }
@@ -237,7 +253,18 @@ async function renderSection(
   }
 
   for (const record of records) {
-    root.appendChild(await buildRecordBlock(doc, record));
+    try {
+      root.appendChild(await buildRecordBlock(doc, record));
+    } catch (e) {
+      const dbg =
+        (addon.data as any).renderLog || ((addon.data as any).renderLog = []);
+      dbg.push(
+        `BLOCK-ERR ${record.id}: ${String((e as any)?.message || e).slice(0, 180)}`,
+      );
+      if (dbg.length > 8) {
+        dbg.shift();
+      }
+    }
   }
 }
 
