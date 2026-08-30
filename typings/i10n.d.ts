@@ -23,6 +23,7 @@ export type FluentMessageId =
   | 'dashboard-status-page'
   | 'dashboard-tab-title'
   | 'dashboard-title'
+  | 'dashboard-untitled-item'
   | 'dialog-add-event'
   | 'dialog-add-event-btn'
   | 'dialog-cancel'

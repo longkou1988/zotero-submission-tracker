@@ -93,3 +93,4 @@ dashboard-last-checked = 上次查看：{ $date }
 dashboard-never-checked = 尚未查看过状态页
 statuspage-tab-title = 状态页 · { $journal }
 dialog-delete-event = 删除此状态记录
+dashboard-untitled-item = 未命名条目

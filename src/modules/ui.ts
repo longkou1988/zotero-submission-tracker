@@ -102,7 +102,17 @@ export function getItemTitle(
     if (!item) {
       return null;
     }
-    return item.getField("title") || item.getDisplayTitle() || "";
+    // Untitled items have an empty title field; fall back to Zotero's own
+    // display title (creator-year etc.) and never treat them as missing.
+    const title = item.getField("title");
+    if (title) {
+      return title;
+    }
+    const display = item.getDisplayTitle ? item.getDisplayTitle() : "";
+    if (display) {
+      return display;
+    }
+    return getString("dashboard-untitled-item");
   } catch (e) {
     ztoolkit.log("submissiontracker: getItemTitle failed", e);
     return null;
