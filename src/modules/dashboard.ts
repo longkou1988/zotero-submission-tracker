@@ -357,6 +357,10 @@ async function buildRow(
   updated.textContent = lastEvent ? lastEvent.date : "";
 
   const follow = html(doc, "span", "st-row-date");
+  const quietDays = -daysFromToday(
+    lastEvent ? lastEvent.date : epochToDate(record.createdAt),
+  );
+  const autoDays = Number(getPref("reminder.autoDays") ?? 30);
   if (record.followUpDate) {
     const days = daysFromToday(record.followUpDate);
     follow.textContent = `${getString("section-followup")}: ${record.followUpDate}`;
@@ -364,6 +368,17 @@ async function buildRow(
       follow.classList.add("st-followup--overdue");
       follow.title = `${getString("section-overdue")} ${Math.abs(days)}d`;
     }
+  } else if (
+    ACTIVE_STATUSES.includes(record.currentStatus) &&
+    autoDays > 0 &&
+    quietDays >= autoDays
+  ) {
+    // No follow-up date: surface the no-progress nag in this column.
+    follow.textContent = getString("dashboard-quiet-days", {
+      args: { count: quietDays },
+    });
+    follow.classList.add("st-row-age");
+    follow.title = `${getString("dashboard-last-updated")}: ${lastEvent ? lastEvent.date : "—"}`;
   }
 
   // Fixed grid cells: always render every column so rows align.
@@ -395,19 +410,6 @@ async function buildRow(
     openDetailDialog(record);
   });
   detailCell.appendChild(detailBtn);
-
-  // No-progress marker: active record without a follow-up date, quiet too long
-  if (!record.followUpDate && ACTIVE_STATUSES.includes(record.currentStatus)) {
-    const refDate = lastEvent ? lastEvent.date : epochToDate(record.createdAt);
-    const quietDays = -daysFromToday(refDate);
-    const autoDays = Number(getPref("reminder.autoDays") ?? 30);
-    if (autoDays > 0 && quietDays >= autoDays) {
-      updated.textContent += ` (${getString("dashboard-quiet-days", {
-        args: { count: quietDays },
-      })})`;
-      updated.classList.add("st-row-age");
-    }
-  }
 
   row.append(badge, title, journal, updated, follow, spageCell, detailCell);
   row.addEventListener("click", () => jumpToItem(record));

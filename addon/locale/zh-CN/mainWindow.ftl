@@ -198,4 +198,5 @@ dialog-delete-with-item = 删除投稿并删除条目
 dialog-delete-with-item-hint = 条目将移入 Zotero 回收站（仅限占位条目，且不含附件/笔记）
 reminder-noprogress-header = { $count } 篇论文长期无消息，考虑发邮件询问期刊进度
 reminder-noprogress-text = 已 { $days } 天无消息，可发邮件询问编辑部进度
-dashboard-quiet-days = 已 { $count } 天
+dashboard-quiet-days = 已 { $count } 天无更新
+dashboard-last-updated = 上次更新

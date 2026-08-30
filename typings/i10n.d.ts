@@ -17,6 +17,7 @@ export type FluentMessageId =
   | 'dashboard-import-title'
   | 'dashboard-item-missing'
   | 'dashboard-last-checked'
+  | 'dashboard-last-updated'
   | 'dashboard-never-checked'
   | 'dashboard-open-detail'
   | 'dashboard-quiet-days'

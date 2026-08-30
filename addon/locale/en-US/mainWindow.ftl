@@ -198,4 +198,5 @@ dialog-delete-with-item = Delete submission + item
 dialog-delete-with-item-hint = The item moves to the Zotero trash (placeholder items without attachments/notes only)
 reminder-noprogress-header = { $count } manuscripts have been quiet — consider emailing the journal
 reminder-noprogress-text = no updates for { $days } days; consider emailing the editorial office
-dashboard-quiet-days = { $count }d quiet
+dashboard-quiet-days = no update for { $count }d
+dashboard-last-updated = Last updated
