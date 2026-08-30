@@ -80,18 +80,18 @@ stat-withdrawn = 撤稿
 reminder-header = 有 { $count } 篇论文需要跟进
 
 # Status page quick entry (v0.3.0)
-dialog-status-url = 状态页网址
+dialog-status-url = 投稿页面网址
 dialog-status-url-hint = 可选；保存后可在面板一键打开并记录查看时间
 dialog-manuscript-id = 稿件编号
-statuspage-title = 投稿状态页
-statuspage-open = 打开状态页
+statuspage-title = 投稿页面
+statuspage-open = 打开投稿页面
 statuspage-reload = 重新加载
 statuspage-external = 在系统浏览器打开
 statuspage-open-detail = 打开投稿详情
-dashboard-status-page = 状态页
+dashboard-status-page = 投稿页面
 dashboard-last-checked = 上次查看：{ $date }
-dashboard-never-checked = 尚未查看过状态页
-statuspage-tab-title = 状态页 · { $journal }
+dashboard-never-checked = 尚未查看过投稿页面
+statuspage-tab-title = 投稿页面 · { $journal }
 dialog-delete-event = 删除此状态记录
 dashboard-untitled-item = 未命名条目
 dialog-delete-with-item = 删除投稿并删除条目
