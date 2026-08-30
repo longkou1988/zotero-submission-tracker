@@ -6,6 +6,20 @@
     <html:h2 data-l10n-id="prefs-title"></html:h2>
   </label>
   <checkbox preference="reminder.enabled" data-l10n-id="pref-reminder" />
+  <hbox align="center">
+    <html:label
+      for="zotero-prefpane-__addonRef__-autodays"
+      data-l10n-id="pref-autodays"
+    ></html:label>
+    <html:input
+      type="number"
+      min="0"
+      width="80"
+      id="zotero-prefpane-__addonRef__-autodays"
+      preference="reminder.autoDays"
+    ></html:input>
+    <html:label data-l10n-id="pref-autodays-unit"></html:label>
+  </hbox>
   <checkbox preference="mirror.extraField" data-l10n-id="pref-mirror" />
   <html:label data-l10n-id="pref-mirror-hint" class="st-pref-hint"></html:label>
 </groupbox>

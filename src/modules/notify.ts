@@ -1,7 +1,12 @@
 import { config } from "../../package.json";
 import { db } from "../db";
-import { ACTIVE_STATUSES, daysFromToday, SubmissionRecord } from "../types";
-import { getPref } from "../utils/prefs";
+import {
+  ACTIVE_STATUSES,
+  daysFromToday,
+  SubmissionRecord,
+  todayStr,
+} from "../types";
+import { getPref, setPref } from "../utils/prefs";
 import { getString } from "../utils/locale";
 import { getItemTitle, statusLabel } from "./ui";
 
@@ -96,7 +101,15 @@ export async function checkFollowUps(): Promise<void> {
   if (!getPref("reminder.enabled")) {
     return;
   }
-  const due = (await db.getAll())
+  const records = await db.getAll();
+  const popup = new ztoolkit.ProgressWindow(config.addonName, {
+    closeOnClick: true,
+    closeTime: 10000,
+  });
+  let shown = 0;
+
+  // 1) explicit follow-up dates that are due
+  const due = records
     .filter(
       (record) =>
         ACTIVE_STATUSES.includes(record.currentStatus) &&
@@ -106,25 +119,92 @@ export async function checkFollowUps(): Promise<void> {
     .sort((a, b) =>
       String(a.followUpDate).localeCompare(String(b.followUpDate)),
     );
-  if (!due.length) {
-    return;
-  }
-  const popup = new ztoolkit.ProgressWindow(config.addonName, {
-    closeOnClick: true,
-    closeTime: 10000,
-  });
-  popup.createLine({
-    text: getString("reminder-header", { args: { count: due.length } }),
-    type: "default",
-    progress: 100,
-  });
-  for (const record of due.slice(0, 4)) {
+  if (due.length) {
     popup.createLine({
-      text: describeDue(record),
-      type: "failure",
+      text: getString("reminder-header", { args: { count: due.length } }),
+      type: "default",
+      progress: 100,
     });
+    for (const record of due.slice(0, 4)) {
+      popup.createLine({
+        text: describeDue(record),
+        type: "failure",
+      });
+    }
+    shown += due.length;
   }
-  popup.show();
+
+  // 2) no-progress nag: active submissions quiet for reminder.autoDays
+  const autoDays = Number(getPref("reminder.autoDays") ?? 30);
+  if (autoDays > 0) {
+    const today = todayStr();
+    const map = readRemindedMap();
+    const stale = records.filter((record) => {
+      if (!ACTIVE_STATUSES.includes(record.currentStatus)) {
+        return false;
+      }
+      if (due.includes(record)) {
+        return false;
+      }
+      if (map[String(record.id)] === today) {
+        return false;
+      }
+      return -daysFromToday(quietSinceDate(record)) >= autoDays;
+    });
+    if (stale.length) {
+      popup.createLine({
+        text: getString("reminder-noprogress-header", {
+          args: { count: stale.length },
+        }),
+        type: "default",
+        progress: 100,
+      });
+      for (const record of stale.slice(0, 4)) {
+        popup.createLine({
+          text: describeStale(record, -daysFromToday(quietSinceDate(record))),
+          type: "default",
+        });
+      }
+      for (const record of stale) {
+        map[String(record.id)] = today;
+      }
+      setPref("reminder.remindedMap", JSON.stringify(map));
+      shown += stale.length;
+    }
+  }
+
+  if (shown > 0) {
+    popup.show();
+  }
+}
+
+/** ISO date of the last activity: latest update, or creation day. */
+function quietSinceDate(record: SubmissionRecord): string {
+  return record.updatedAt ? epochToDate(record.updatedAt) : todayStr();
+}
+
+function epochToDate(epochMs: number): string {
+  const d = new Date(epochMs);
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${d.getFullYear()}-${m}-${day}`;
+}
+
+function readRemindedMap(): Record<string, string> {
+  try {
+    return JSON.parse((getPref("reminder.remindedMap") as any) || "{}");
+  } catch (e) {
+    return {};
+  }
+}
+
+function describeStale(record: SubmissionRecord, days: number): string {
+  const title = getItemTitle(record.libraryID, record.itemKey) || "";
+  const trimmed = title.length > 40 ? `${title.slice(0, 40)}…` : title;
+  const journal = record.journal ? ` · ${record.journal}` : "";
+  return `${trimmed}${journal} — ${getString("reminder-noprogress-text", {
+    args: { days },
+  })}`;
 }
 
 function describeDue(record: SubmissionRecord): string {

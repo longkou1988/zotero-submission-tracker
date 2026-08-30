@@ -8,6 +8,7 @@ import {
   SubmissionRecord,
   SubmissionStatus,
 } from "../types";
+import { getPref } from "../utils/prefs";
 import { getString } from "../utils/locale";
 import { openDetailDialog } from "./dialog";
 import { openStatusPage } from "./statusPage";
@@ -365,6 +366,8 @@ async function buildRow(
     }
   }
 
+  // Fixed grid cells: always render every column so rows align.
+  const spageCell = html(doc, "span", "st-row-spage");
   if (record.statusUrl) {
     const statusBtn = html(
       doc,
@@ -377,17 +380,36 @@ async function buildRow(
       e.stopPropagation();
       openStatusPage(record);
     });
-    row.append(statusBtn);
+    spageCell.appendChild(statusBtn);
   }
 
-  const detailBtn = html(doc, "button", "st-btn st-btn--sm");
+  const detailCell = html(doc, "span", "st-row-detail");
+  const detailBtn = html(
+    doc,
+    "button",
+    "st-btn st-btn--sm",
+  ) as HTMLButtonElement;
   detailBtn.textContent = getString("dashboard-open-detail");
   detailBtn.addEventListener("click", (e) => {
     e.stopPropagation();
     openDetailDialog(record);
   });
+  detailCell.appendChild(detailBtn);
 
-  row.append(badge, title, journal, updated, follow, detailBtn);
+  // No-progress marker: active record without a follow-up date, quiet too long
+  if (!record.followUpDate && ACTIVE_STATUSES.includes(record.currentStatus)) {
+    const refDate = lastEvent ? lastEvent.date : epochToDate(record.createdAt);
+    const quietDays = -daysFromToday(refDate);
+    const autoDays = Number(getPref("reminder.autoDays") ?? 30);
+    if (autoDays > 0 && quietDays >= autoDays) {
+      updated.textContent += ` (${getString("dashboard-quiet-days", {
+        args: { count: quietDays },
+      })})`;
+      updated.classList.add("st-row-age");
+    }
+  }
+
+  row.append(badge, title, journal, updated, follow, spageCell, detailCell);
   row.addEventListener("click", () => jumpToItem(record));
   return row;
 }
@@ -398,6 +420,13 @@ function isCheckStale(lastCheckedAt: number | null): boolean {
     return true;
   }
   return Date.now() - lastCheckedAt > STALE_CHECK_DAYS * 86400000;
+}
+
+function epochToDate(epochMs: number): string {
+  const d = new Date(epochMs);
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${d.getFullYear()}-${m}-${day}`;
 }
 
 function formatDateTime(epochMs: number): string {

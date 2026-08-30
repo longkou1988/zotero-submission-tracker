@@ -9,6 +9,8 @@ declare namespace _ZoteroTypes {
     PluginPrefsMap: {
       "reminder.enabled": boolean;
       "mirror.extraField": boolean;
+      "reminder.autoDays": number;
+      "reminder.remindedMap": string;
     };
   }
 }

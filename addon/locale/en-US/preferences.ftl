@@ -4,3 +4,5 @@ pref-reminder =
 pref-mirror =
     .label = Mirror current submission status into the item "Extra" field (synced by Zotero)
 pref-mirror-hint = The Extra field modifies original item data. Off by default.
+pref-autodays = No-progress nag threshold (days):
+pref-autodays-unit = days without updates, 0 disables
