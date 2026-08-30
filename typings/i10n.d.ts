@@ -32,6 +32,8 @@ export type FluentMessageId =
   | 'dialog-delete'
   | 'dialog-delete-confirm'
   | 'dialog-delete-event'
+  | 'dialog-delete-with-item'
+  | 'dialog-delete-with-item-hint'
   | 'dialog-detail-title'
   | 'dialog-event-note'
   | 'dialog-followup'

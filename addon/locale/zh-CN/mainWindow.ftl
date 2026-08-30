@@ -94,3 +94,5 @@ dashboard-never-checked = 尚未查看过状态页
 statuspage-tab-title = 状态页 · { $journal }
 dialog-delete-event = 删除此状态记录
 dashboard-untitled-item = 未命名条目
+dialog-delete-with-item = 删除投稿并删除条目
+dialog-delete-with-item-hint = 条目将移入 Zotero 回收站（仅限占位条目，且不含附件/笔记）

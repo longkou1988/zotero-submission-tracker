@@ -94,3 +94,5 @@ dashboard-never-checked = Status page never checked
 statuspage-tab-title = Status Page · { $journal }
 dialog-delete-event = Delete this status entry
 dashboard-untitled-item = Untitled item
+dialog-delete-with-item = Delete submission + item
+dialog-delete-with-item-hint = The item moves to the Zotero trash (placeholder items without attachments/notes only)

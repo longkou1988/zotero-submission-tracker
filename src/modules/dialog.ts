@@ -9,7 +9,68 @@ import {
 import { db } from "../db";
 import { getString } from "../utils/locale";
 import { openStatusPage } from "./statusPage";
+import { refreshDashboard } from "./dashboard";
 import { buildStatusPicker, html, statusBadge, statusLabel } from "./ui";
+
+/** The Zotero item a submission record points at, or null if it is gone. */
+function getRecordItem(record: SubmissionRecord): Zotero.Item | null {
+  try {
+    const itemID = Zotero.Items.getIDFromLibraryAndKey(
+      record.libraryID,
+      record.itemKey,
+    );
+    if (!itemID) {
+      return null;
+    }
+    return (Zotero.Items.get(itemID) as Zotero.Item) || null;
+  } catch (e) {
+    ztoolkit.log("submissiontracker: getRecordItem failed", e);
+    return null;
+  }
+}
+
+/**
+ * Placeholder items (created just to track a submission) may be renamed or
+ * removed alongside the record: untitled items, or items whose title equals
+ * the journal name. Items with real titles are never touched.
+ */
+function isPlaceholderItem(item: Zotero.Item, journal: string): boolean {
+  try {
+    const title = String(item.getField("title") || "").trim();
+    if (!title) {
+      return true;
+    }
+    const j = journal.trim();
+    return !!j && title === j;
+  } catch (e) {
+    return false;
+  }
+}
+
+function itemHasChildren(item: Zotero.Item): boolean {
+  try {
+    const attachments = (item.getAttachments?.() || []).length;
+    const notes = (item.getNotes?.() || []).length;
+    return attachments > 0 || notes > 0;
+  } catch (e) {
+    return true;
+  }
+}
+
+/** Name untitled items after the submission journal (placeholders). */
+async function autoNameItem(item: Zotero.Item, journal: string): Promise<void> {
+  try {
+    const current = String(item.getField("title") || "").trim();
+    if (current || !journal.trim()) {
+      return;
+    }
+    item.setField("title", journal.trim());
+    await item.saveTx();
+    refreshDashboard();
+  } catch (e) {
+    ztoolkit.log("submissiontracker: auto-name item failed", e);
+  }
+}
 
 /** Mirror the current status into the item's Extra field (opt-in). */
 export async function mirrorStatus(record: SubmissionRecord): Promise<void> {
@@ -248,6 +309,8 @@ export async function openCreateDialog(items: Zotero.Item[]): Promise<void> {
               manuscriptId: manuscriptInput.value.trim() || null,
             });
             await mirrorStatus(record);
+            // Name untitled placeholder items after the journal.
+            await autoNameItem(item, journal);
           }
         } finally {
           save.disabled = false;
@@ -449,14 +512,53 @@ async function buildDetail(
   const footer = html(doc, "div", "st-dialog-footer");
   const del = html(doc, "button", "st-btn st-btn--danger") as HTMLButtonElement;
   del.textContent = getString("dialog-delete");
+
+  // Placeholder items (untitled or named after the journal, without
+  // attachments/notes) can be moved to the Zotero trash together with the
+  // record — useful for tracking-only placeholder entries.
+  const linkedItem = getRecordItem(record);
+  const canDeleteItem =
+    !!linkedItem &&
+    !itemHasChildren(linkedItem) &&
+    isPlaceholderItem(linkedItem, record.journal);
+  let delItem: HTMLButtonElement | null = null;
+  if (canDeleteItem && linkedItem) {
+    delItem = html(doc, "button", "st-btn st-btn--danger") as HTMLButtonElement;
+    delItem.textContent = getString("dialog-delete-with-item");
+    delItem.title = getString("dialog-delete-with-item-hint");
+    delItem.hidden = true;
+    delItem.addEventListener("click", async () => {
+      delItem!.disabled = true;
+      del.disabled = true;
+      try {
+        await db.deleteSubmission(record.id);
+        // Move to Zotero's trash — recoverable until the trash is emptied.
+        linkedItem.deleted = true;
+        await linkedItem.saveTx();
+        refreshDashboard();
+      } catch (e) {
+        ztoolkit.log("submissiontracker: delete with item failed", e);
+      }
+      try {
+        win.close();
+      } catch (e) {
+        ztoolkit.log("submissiontracker: close dialog failed", e);
+      }
+    });
+  }
+
   del.addEventListener("click", async () => {
     if (!del.dataset.armed) {
       del.dataset.armed = "1";
       del.textContent = getString("dialog-delete-confirm");
+      if (delItem) {
+        delItem.hidden = false;
+      }
       return;
     }
     del.disabled = true;
     await db.deleteSubmission(record.id);
+    refreshDashboard();
     try {
       win.close();
     } catch (e) {
@@ -484,14 +586,19 @@ async function buildDetail(
   save.addEventListener("click", async () => {
     save.disabled = true;
     try {
+      const journal = journalInput.value.trim();
       await db.updateSubmission(record.id, {
-        journal: journalInput.value.trim(),
+        journal,
         followUpDate: followInput.value || null,
         notes: notesInput.value.trim(),
         currentStatus: record.currentStatus,
         statusUrl: statusUrlInput.value.trim() || null,
         manuscriptId: manuscriptInput.value.trim() || null,
       });
+      const linked = getRecordItem(record);
+      if (linked) {
+        await autoNameItem(linked, journal);
+      }
       const fresh = await db.getSubmission(record.id);
       if (fresh) {
         await mirrorStatus(fresh);
@@ -506,6 +613,9 @@ async function buildDetail(
     }
   });
   footer.append(del, spacer, save);
+  if (delItem) {
+    footer.appendChild(delItem);
+  }
   root.appendChild(footer);
 }
 

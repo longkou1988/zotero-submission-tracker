@@ -79,6 +79,11 @@ function teardown(): void {
   }
 }
 
+/** Re-render the dashboard if it is open (called after item renames etc.) */
+export function refreshDashboard(): void {
+  scheduleRefresh();
+}
+
 function scheduleRefresh(): void {
   if (!opened) {
     return;
