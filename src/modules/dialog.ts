@@ -57,21 +57,6 @@ function itemHasChildren(item: Zotero.Item): boolean {
   }
 }
 
-/** Name untitled items after the submission journal (placeholders). */
-async function autoNameItem(item: Zotero.Item, journal: string): Promise<void> {
-  try {
-    const current = String(item.getField("title") || "").trim();
-    if (current || !journal.trim()) {
-      return;
-    }
-    item.setField("title", journal.trim());
-    await item.saveTx();
-    refreshDashboard();
-  } catch (e) {
-    ztoolkit.log("submissiontracker: auto-name item failed", e);
-  }
-}
-
 /** Mirror the current status into the item's Extra field (opt-in). */
 export async function mirrorStatus(record: SubmissionRecord): Promise<void> {
   if (!getPref("mirror.extraField")) {
@@ -296,10 +281,17 @@ export async function openCreateDialog(items: Zotero.Item[]): Promise<void> {
         save.disabled = true;
         try {
           const date = dateInput.value || todayStr();
-          for (const item of items) {
+          for (const _source of items) {
+            // Placeholder workflow: each submission gets its own new item,
+            // titled after the journal. The right-clicked source item is
+            // only the launch context and is left untouched.
+            const placeholder = new Zotero.Item("journalArticle");
+            placeholder.setField("title", journal);
+            placeholder.setField("date", date);
+            await placeholder.saveTx();
             const record = await db.create({
-              libraryID: item.libraryID,
-              itemKey: item.key,
+              libraryID: placeholder.libraryID,
+              itemKey: placeholder.key,
               journal,
               status: statusPicker.value,
               date,
@@ -309,8 +301,7 @@ export async function openCreateDialog(items: Zotero.Item[]): Promise<void> {
               manuscriptId: manuscriptInput.value.trim() || null,
             });
             await mirrorStatus(record);
-            // Name untitled placeholder items after the journal.
-            await autoNameItem(item, journal);
+            refreshDashboard();
           }
         } finally {
           save.disabled = false;
@@ -596,13 +587,16 @@ async function buildDetail(
         manuscriptId: manuscriptInput.value.trim() || null,
       });
       const linked = getRecordItem(record);
-      if (linked) {
-        await autoNameItem(linked, journal);
+      if (linked && isPlaceholderItem(linked, record.journal)) {
+        // Placeholder item tracks the journal name.
+        linked.setField("title", journal);
+        await linked.saveTx();
       }
       const fresh = await db.getSubmission(record.id);
       if (fresh) {
         await mirrorStatus(fresh);
       }
+      refreshDashboard();
     } finally {
       save.disabled = false;
     }

@@ -32,7 +32,7 @@ status-withdrawn = Withdrawn
 # Dialogs
 dialog-create-title = Add Submission Record
 dialog-detail-title = Submission Details
-dialog-multi-items = Add submission records for { $count } items
+dialog-multi-items = Create submission entries for { $count } items
 dialog-item-missing = Item no longer exists
 dialog-journal = Journal
 dialog-journal-placeholder = Journal name, e.g. Nature

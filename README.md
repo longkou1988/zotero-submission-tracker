@@ -40,7 +40,7 @@ Track journal submission records for your manuscripts right inside Zotero: multi
 
 ### 使用
 
-1. **添加投稿**：选中文献 → 右键「投稿记录」→「添加投稿记录」，填写期刊（自动补全）、状态、日期与跟进日期
+1. **添加投稿**：选中一篇文献（作为入口）→ 右键「投稿记录」→「添加投稿记录」，填写期刊（自动补全）、状态、日期与跟进日期。保存后 Zotero 会**自动新建一条以期刊命名的占位条目**，该投稿的状态、时间线、状态页都挂在这个条目下——每条投稿一个独立条目，互不干扰
 2. **更新状态**：收到期刊回复后，在条目面板「投稿记录」区块点击期刊名或「详情」→「记录状态变更」，选择新状态并写备注
 3. **查看真实状态**：在添加/详情对话框中填写投稿系统状态页网址，之后在投稿管理面板点击「状态页」即可在 Zotero 内直接打开期刊系统页面查看最新状态，再回到详情对话框手动记录状态变更
 4. **全局管理**：菜单栏 工具 → 打开投稿管理，查看统计、筛选和跟进
@@ -92,7 +92,7 @@ npm run build          # 产出 .scaffold/build/*.xpi
 
 ### Usage
 
-1. **Add a submission**: select an item → right-click → "Submission Records" → "Add Submission Record"
+1. **Add a submission**: select an item (as the entry point) → right-click → "Submission Records" → "Add Submission Record". On save, Zotero **creates a new placeholder item named after the journal** — each submission gets its own tracking item
 2. **Update status**: when the journal replies, open the record from the item pane section (click the journal name or "Details") → "Record Status Update"
 3. **Check the real status**: save the status page URL in the add/details dialog, then hit "Status Page" on the dashboard to open the journal system in a Zotero tab; record what you see manually via the details dialog
 4. **Dashboard**: Tools → Open Submission Dashboard for stats, filters and follow-ups

@@ -32,7 +32,7 @@ status-withdrawn = 撤稿
 # Dialogs
 dialog-create-title = 添加投稿记录
 dialog-detail-title = 投稿详情
-dialog-multi-items = 为 { $count } 篇文献添加投稿记录
+dialog-multi-items = 为 { $count } 篇文献创建投稿条目
 dialog-item-missing = 条目已不存在
 dialog-journal = 期刊
 dialog-journal-placeholder = 输入期刊名称，如 Nature
