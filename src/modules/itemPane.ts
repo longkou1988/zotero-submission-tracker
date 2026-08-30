@@ -155,9 +155,31 @@ async function sweepTick(): Promise<void> {
     for (const sec of sections) {
       try {
         const el = sec as any;
-        if (el._section) {
-          el.hidden = !currentItem;
+        // Resolve the section's inner nodes fresh from the live DOM —
+        // Zotero rebuilds them when section attributes change.
+        const sectionEl =
+          (el.querySelector("collapsible-section") as any) || el._section;
+        const body = (el.querySelector(
+          'collapsible-section [data-type="body"]',
+        ) || el._body) as HTMLElement | null;
+        if (!sectionEl || !body) {
+          continue;
         }
+        // Setting the summary attribute re-renders the collapsible-section
+        // and wipes the body, so only touch it on real changes — and always
+        // (re)render the body afterwards.
+        const latest = await db.getLatestForItem(
+          currentItem ? currentItem.libraryID : 0,
+          currentItem ? currentItem.key : "",
+        );
+        const desiredSummary = latest ? statusLabel(latest.currentStatus) : "";
+        let wiped = false;
+        if (sectionEl.summary !== desiredSummary) {
+          sectionEl.summary = desiredSummary;
+          body.textContent = "";
+          wiped = true;
+        }
+        el.hidden = !currentItem;
         if (!currentItem) {
           continue;
         }
@@ -169,34 +191,16 @@ async function sweepTick(): Promise<void> {
         } catch (e) {
           // assignment is best-effort only
         }
-        const body = el._body as HTMLElement | null;
-        if (!body) {
-          continue;
-        }
         const stale =
+          wiped ||
           body.dataset.stRenderedItem !== String(currentItem.id) ||
           !body.querySelector(".st-section-root") ||
           !!body.querySelector(".st-empty");
         if (!stale) {
           continue;
         }
-        const dbg =
-          (addon.data as any).renderLog || ((addon.data as any).renderLog = []);
-        dbg.push(
-          `sweep rebind sec=${currentItem.id} prev=${body.dataset.stRenderedItem || "none"}`,
-        );
-        if (dbg.length > 10) {
-          dbg.shift();
-        }
         body.textContent = "";
         await renderSection(body, currentItem);
-        const latest = await db.getLatestForItem(
-          currentItem.libraryID,
-          currentItem.key,
-        );
-        if (el._section) {
-          el._section.summary = latest ? statusLabel(latest.currentStatus) : "";
-        }
       } catch (e) {
         const dbg =
           (addon.data as any).renderLog || ((addon.data as any).renderLog = []);
