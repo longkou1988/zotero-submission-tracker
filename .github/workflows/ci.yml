@@ -9,6 +9,16 @@ on:
       - main
 
 jobs:
+  unit:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_TOKEN: ${{ secrets.GitHub_TOKEN }}
+    steps:
+      - name: Setup JS
+        uses: zotero-plugin-dev/workflows/setup-js@main
+      - name: Run unit tests
+        run: npm run test:unit
+
   lint:
     runs-on: ubuntu-latest
     env:
