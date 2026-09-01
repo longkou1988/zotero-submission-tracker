@@ -1,1 +1,24 @@
 startup-finish = Submission Tracker ready
+
+menu-next-action = Next Action
+menu-inquiry-assistant = Inquiry Assistant
+smart-action-no-record = The selected item has no submission record
+next-action-title = Suggested Next Action
+next-action-submit = Complete the manuscript and submit it to the journal
+next-action-wait-editor = Wait for editorial processing; check the submission page if needed
+next-action-inquire-editor = No update for { $days } days; check the submission page or politely contact the editorial office
+next-action-wait-review = Wait for peer-review results and check again on the planned follow-up date
+next-action-inquire-review = No review update for { $days } days; check the submission page or send a polite status inquiry
+next-action-revise = Prioritize the revision and point-by-point response, then resubmit by the deadline
+next-action-revision-overdue = The revision follow-up date is due or overdue; prioritize the revision task
+next-action-proof = Watch for proofs, copyright forms, and publication scheduling
+next-action-resubmit = Review the feedback and decide whether to revise and resubmit or try another journal
+next-action-archive = Archive this submission; create a new record if you submit elsewhere
+inquiry-title = Status Inquiry Assistant
+inquiry-hint = Templates are generated locally without AI or third-party services. Review and adapt them before sending.
+inquiry-english = English email
+inquiry-chinese = Chinese reference
+inquiry-copy = Copy email
+inquiry-copied = Copied
+inquiry-close = Close
+inquiry-not-recommended = A status inquiry is not recommended at this stage; check “Next Action” first
