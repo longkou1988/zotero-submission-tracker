@@ -1,17 +1,15 @@
+import type { FluentMessageId } from "../../typings/i10n";
 import type { SubmissionStatus } from "../types";
 
 export interface NextActionInput {
   status: SubmissionStatus;
-  /** Days since the latest recorded status event. */
   quietDays: number;
-  /** Days until the explicit follow-up date; negative means overdue. */
   followUpDays: number | null;
-  /** Quiet-day threshold configured by the user. */
   quietThresholdDays: number;
 }
 
 export interface NextActionResult {
-  messageKey: string;
+  messageKey: FluentMessageId;
   canInquire: boolean;
   urgent: boolean;
 }
@@ -29,10 +27,6 @@ export interface InquiryEmailContent {
   zhBody: string;
 }
 
-/**
- * Pure workflow rules for the dashboard. Keeping this independent from Zotero
- * APIs makes the behavior deterministic and fast to unit-test.
- */
 export function getNextAction(input: NextActionInput): NextActionResult {
   const followUpDue = input.followUpDays !== null && input.followUpDays <= 0;
   const quietThreshold = Math.max(1, input.quietThresholdDays || 30);
@@ -41,55 +35,37 @@ export function getNextAction(input: NextActionInput): NextActionResult {
   switch (input.status) {
     case "draft":
       return action("next-action-submit");
-
     case "submitted":
-      if (followUpDue || quietTooLong) {
-        return action("next-action-inquire-editor", true, true);
-      }
-      return action("next-action-wait-editor");
-
     case "with_editor":
-      if (followUpDue || quietTooLong) {
-        return action("next-action-inquire-editor", true, true);
-      }
-      return action("next-action-wait-editor");
-
+      return followUpDue || quietTooLong
+        ? action("next-action-inquire-editor", true, true)
+        : action("next-action-wait-editor");
     case "under_review":
-      if (followUpDue || quietTooLong) {
-        return action("next-action-inquire-review", true, true);
-      }
-      return action("next-action-wait-review");
-
+      return followUpDue || quietTooLong
+        ? action("next-action-inquire-review", true, true)
+        : action("next-action-wait-review");
     case "major_revision":
     case "minor_revision":
-      if (followUpDue) {
-        return action("next-action-revision-overdue", false, true);
-      }
-      return action("next-action-revise");
-
+      return followUpDue
+        ? action("next-action-revision-overdue", false, true)
+        : action("next-action-revise");
     case "accepted":
       return action("next-action-proof");
-
     case "rejected":
       return action("next-action-resubmit");
-
     case "withdrawn":
       return action("next-action-archive");
   }
 }
 
 function action(
-  messageKey: string,
+  messageKey: FluentMessageId,
   canInquire = false,
   urgent = false,
 ): NextActionResult {
   return { messageKey, canInquire, urgent };
 }
 
-/**
- * Generate a bilingual, conservative status-inquiry template locally.
- * No network request or AI service is involved.
- */
 export function buildInquiryEmailContent(
   input: InquiryEmailInput,
 ): InquiryEmailContent {
