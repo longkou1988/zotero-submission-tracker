@@ -1,7 +1,9 @@
 import { config } from "../../package.json";
+import { db } from "../db";
 import { getString } from "../utils/locale";
 import { openCreateDialog } from "./dialog";
 import { openDashboard } from "./dashboard";
+import { openInquiryIfRecommended, showNextAction } from "./smartActions";
 
 export function registerMenus(): void {
   const menuIcon = `chrome://${config.addonRef}/content/icons/section.svg`;
@@ -16,6 +18,16 @@ export function registerMenus(): void {
         tag: "menuitem",
         label: getString("menu-add"),
         commandListener: () => addSubmissionFromSelection(),
+      },
+      {
+        tag: "menuitem",
+        label: getString("menu-next-action"),
+        commandListener: () => showNextActionFromSelection(),
+      },
+      {
+        tag: "menuitem",
+        label: getString("menu-inquiry-assistant"),
+        commandListener: () => openInquiryFromSelection(),
       },
       {
         tag: "menuitem",
@@ -51,4 +63,34 @@ async function addSubmissionFromSelection(): Promise<void> {
     return;
   }
   await openCreateDialog(items);
+}
+
+async function getSelectedSubmission() {
+  const item = getSelectedRegularItems()[0];
+  if (!item) return undefined;
+  return db.getLatestForItem(item.libraryID, item.key);
+}
+
+async function showNextActionFromSelection(): Promise<void> {
+  const record = await getSelectedSubmission();
+  if (!record) {
+    showNoSubmissionToast();
+    return;
+  }
+  await showNextAction(record);
+}
+
+async function openInquiryFromSelection(): Promise<void> {
+  const record = await getSelectedSubmission();
+  if (!record) {
+    showNoSubmissionToast();
+    return;
+  }
+  await openInquiryIfRecommended(record);
+}
+
+function showNoSubmissionToast(): void {
+  new ztoolkit.ProgressWindow(config.addonName, { closeTime: 4000 })
+    .createLine({ text: getString("smart-action-no-record"), type: "default" })
+    .show();
 }
