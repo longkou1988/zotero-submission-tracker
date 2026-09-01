@@ -1,1 +1,24 @@
 startup-finish = Submission Tracker 已就绪
+
+menu-next-action = 下一步建议
+menu-inquiry-assistant = 催稿助手
+smart-action-no-record = 当前条目没有投稿记录
+next-action-title = 投稿下一步建议
+next-action-submit = 完成稿件准备并提交投稿
+next-action-wait-editor = 等待编辑部处理；必要时检查投稿页面
+next-action-inquire-editor = 已 { $days } 天无更新，建议检查投稿页面或礼貌询问编辑部
+next-action-wait-review = 等待外审结果；按计划日期再次检查
+next-action-inquire-review = 外审已 { $days } 天无更新，建议检查投稿页面或礼貌催稿
+next-action-revise = 优先准备修改稿与逐点回复，并按期提交修回
+next-action-revision-overdue = 修改跟进日期已到或逾期，请优先处理修回任务
+next-action-proof = 关注校样、版权协议及正式上线安排
+next-action-resubmit = 评估审稿意见，决定修改后重投或改投其他期刊
+next-action-archive = 归档本次投稿；如需继续，准备新的投稿记录
+inquiry-title = 催稿邮件助手
+inquiry-hint = 邮件模板仅在本机生成，不调用 AI 或第三方服务。发送前请结合实际情况修改。
+inquiry-english = 英文邮件
+inquiry-chinese = 中文参考
+inquiry-copy = 复制邮件
+inquiry-copied = 已复制
+inquiry-close = 关闭
+inquiry-not-recommended = 当前阶段暂不建议催稿，请先查看“下一步建议”
