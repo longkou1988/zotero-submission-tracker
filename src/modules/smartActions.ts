@@ -47,7 +47,7 @@ export async function showNextAction(record: SubmissionRecord): Promise<void> {
   })
     .createLine({
       text,
-      type: context.action.urgent ? "warning" : "success",
+      type: context.action.urgent ? "failure" : "success",
     })
     .show();
 }
