@@ -89,3 +89,25 @@ test("probe source never serializes browser secrets or full HTML", () => {
     assert.equal(source.includes(forbidden), false, forbidden);
   }
 });
+
+test("probe is exposed only through the development API and never a user menu", () => {
+  const addonSource = readFileSync(
+    new URL("../src/addon.ts", import.meta.url),
+    "utf8",
+  );
+  const menuSource = readFileSync(
+    new URL("../src/modules/menu.ts", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(
+    addonSource,
+    /import\s*\{\s*runSpringerProbe\s*\}\s*from\s*["']\.\/modules\/statusSync\/springerProbe["']/,
+  );
+  assert.match(addonSource, /runSpringerProbe\?\s*:/);
+  assert.match(
+    addonSource,
+    /if\s*\(this\.data\.env\s*===\s*["']development["']\)\s*\{[^}]*this\.api\.runSpringerProbe\s*=\s*runSpringerProbe/s,
+  );
+  assert.doesNotMatch(menuSource, /runSpringerProbe|springerProbe/i);
+});
