@@ -17,7 +17,10 @@ const ACTIVE_TARGETS = new Set<SubmissionStatus>([
   "withdrawn",
 ]);
 
-const AUTO_TRANSITIONS: Record<SubmissionStatus, ReadonlySet<SubmissionStatus>> = {
+const AUTO_TRANSITIONS: Record<
+  SubmissionStatus,
+  ReadonlySet<SubmissionStatus>
+> = {
   draft: ACTIVE_TARGETS,
   submitted: new Set([
     "with_editor",
