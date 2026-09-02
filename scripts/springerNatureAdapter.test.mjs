@@ -6,6 +6,10 @@ import {
   redactSpringerProbeText,
   runSpringerProbe,
 } from "../src/modules/statusSync/springerProbe.ts";
+import {
+  normalizeSpringerObservation,
+  parseSpringerStatusFields,
+} from "../src/modules/statusSync/springerNatureAdapter.ts";
 
 function fakeElement(tagName, textContent, attrs = {}) {
   return {
@@ -18,6 +22,18 @@ function fakeElement(tagName, textContent, attrs = {}) {
       return attrs[name] ?? null;
     },
   };
+}
+
+function readActionNeededFixture() {
+  return JSON.parse(
+    readFileSync(
+      new URL(
+        "./fixtures/springer-nature/submission-details-action-needed.json",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+  );
 }
 
 test("probe redaction removes private submission identifiers and email addresses", () => {
@@ -110,4 +126,48 @@ test("probe is exposed only through the development API and never a user menu", 
     /if\s*\(this\.data\.env\s*===\s*["']development["']\)\s*\{[^}]*this\.api\.runSpringerProbe\s*=\s*runSpringerProbe/s,
   );
   assert.doesNotMatch(menuSource, /runSpringerProbe|springerProbe/i);
+});
+
+test("real redacted Springer fixture contains no private identifiers", () => {
+  const fixture = readActionNeededFixture();
+  const serialized = JSON.stringify(fixture);
+
+  assert.equal(serialized.includes("@"), false);
+  assert.equal(
+    /\b[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/i.test(
+      serialized,
+    ),
+    false,
+  );
+  assert.equal(serialized.includes("[email]"), true);
+  assert.equal(serialized.includes("[id]"), true);
+});
+
+test("Action needed fixture is recognized as a generic revision request only", () => {
+  const fixture = readActionNeededFixture();
+  const observation = parseSpringerStatusFields({
+    headline: fixture.dom.headline,
+    texts: fixture.dom.text,
+  });
+  const normalization = normalizeSpringerObservation(observation);
+
+  assert.equal(observation.rawStatus, "Action needed");
+  assert.equal(observation.detailCode, "revision_requested");
+  assert.equal(observation.sourceStatusDate, null);
+  assert.deepEqual(normalization, {
+    canonicalStatus: null,
+    confidence: "unknown",
+    detailLabel: "Revision requested",
+  });
+});
+
+test("revision due date is not treated as a provider status date", () => {
+  const fixture = readActionNeededFixture();
+  const observation = parseSpringerStatusFields({
+    headline: fixture.dom.headline,
+    texts: fixture.dom.text,
+  });
+
+  assert.equal(observation.sourceStatusDate, null);
+  assert.equal(observation.revisionDueDate, "2026-09-15");
 });
