@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import {
   buildCollectionOptions,
@@ -32,4 +33,10 @@ test("remembered collection is used when current selection is not a single valid
 test("root is used when remembered or selected collections are invalid", () => {
   assert.equal(chooseDefaultCollectionID([], 13, collections), null);
   assert.equal(chooseDefaultCollectionID([999], 999, collections), null);
+});
+
+test("create dialog uses custom collection picker instead of broken native select", () => {
+  const source = readFileSync(new URL("../src/modules/dialog.ts", import.meta.url), "utf8");
+  assert.match(source, /buildCollectionPicker/);
+  assert.doesNotMatch(source, /const collectionSelect = html\(/);
 });
