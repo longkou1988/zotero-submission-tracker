@@ -32,6 +32,20 @@ export interface SubmissionAnalytics {
   journals: JournalAnalytics[];
 }
 
+export type OutcomeChartKey =
+  | "active"
+  | "accepted"
+  | "rejected"
+  | "withdrawn";
+
+export interface OutcomeChartSegment {
+  key: OutcomeChartKey;
+  count: number;
+  percent: number;
+  startPercent: number;
+  endPercent: number;
+}
+
 const ACTIVE_STATUS_SET = new Set<SubmissionStatus>([
   "draft",
   "submitted",
@@ -127,6 +141,42 @@ export function computeSubmissionAnalytics(
     yearlyTrend,
     journals,
   };
+}
+
+export function getOutcomeChartSegments(
+  analytics: Pick<
+    SubmissionAnalytics,
+    "total" | "active" | "accepted" | "rejected" | "withdrawn"
+  >,
+): OutcomeChartSegment[] {
+  const values: Array<[OutcomeChartKey, number]> = [
+    ["active", analytics.active],
+    ["accepted", analytics.accepted],
+    ["rejected", analytics.rejected],
+    ["withdrawn", analytics.withdrawn],
+  ];
+  let cursor = 0;
+
+  return values.map(([key, count]) => {
+    const rawPercent = analytics.total ? (count / analytics.total) * 100 : 0;
+    const startPercent = round1(cursor);
+    cursor += rawPercent;
+    return {
+      key,
+      count,
+      percent: round1(rawPercent),
+      startPercent,
+      endPercent: round1(cursor),
+    };
+  });
+}
+
+export function getJournalBarWidths(
+  journals: Array<Pick<JournalAnalytics, "submissions">>,
+): number[] {
+  const max = Math.max(0, ...journals.map((journal) => journal.submissions));
+  if (!max) return journals.map(() => 0);
+  return journals.map((journal) => round1((journal.submissions / max) * 100));
 }
 
 export function getFirstDecisionDays(events: StatusEvent[]): number | null {
