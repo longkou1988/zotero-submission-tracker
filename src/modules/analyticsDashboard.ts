@@ -3,6 +3,7 @@ import { db } from "../db";
 import { getString } from "../utils/locale";
 import {
   computeSubmissionAnalytics,
+  filterVisibleSubmissionRecords,
   getJournalBarWidths,
   getOutcomeChartSegments,
   type OutcomeChartKey,
@@ -21,6 +22,7 @@ const OUTCOME_COLORS: Record<OutcomeChartKey, string> = {
 
 let opened = false;
 let unsubscribe: (() => void) | null = null;
+let itemNotifierID: string | null = null;
 let rootEl: HTMLElement | null = null;
 let refreshTimer: number | null = null;
 
@@ -47,6 +49,17 @@ export function openAnalyticsDashboard(): void {
   rootEl = buildShell(win.document);
   (container as HTMLElement).appendChild(rootEl);
   unsubscribe = db.onChange(() => scheduleRefresh());
+  itemNotifierID = Zotero.Notifier.registerObserver(
+    {
+      notify: (event: string, type: string) => {
+        if (type === "item" && (event === "modify" || event === "delete")) {
+          scheduleRefresh();
+        }
+      },
+    },
+    ["item"],
+    "submission-tracker-analytics",
+  );
   void refresh();
 }
 
@@ -61,6 +74,10 @@ function teardown(): void {
   if (unsubscribe) {
     unsubscribe();
     unsubscribe = null;
+  }
+  if (itemNotifierID) {
+    Zotero.Notifier.unregisterObserver(itemNotifierID);
+    itemNotifierID = null;
   }
 }
 
@@ -101,7 +118,15 @@ function buildShell(doc: Document): HTMLElement {
 async function refresh(): Promise<void> {
   if (!opened || !rootEl) return;
 
-  const records = await db.getAll();
+  const records = filterVisibleSubmissionRecords(
+    await db.getAll(),
+    (libraryID, itemKey) => {
+      const itemID = Zotero.Items.getIDFromLibraryAndKey(libraryID, itemKey);
+      if (!itemID) return undefined;
+      const item = Zotero.Items.get(itemID) as Zotero.Item | undefined;
+      return item ? { deleted: item.deleted } : undefined;
+    },
+  );
   const submissions = await Promise.all(
     records.map(async (record) => ({
       record,
