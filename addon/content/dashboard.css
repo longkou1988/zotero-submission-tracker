@@ -10,6 +10,15 @@
   font-size: 13px;
 }
 
+/* Analytics panels are direct flex children. Keep wide content such as the
+   journal-performance table from shrinking the whole panel in Gecko. */
+.st-dash > section {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  flex-shrink: 0;
+}
+
 .st-dash-header {
   display: flex;
   align-items: center;
