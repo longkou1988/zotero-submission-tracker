@@ -88,6 +88,88 @@ export function buildStatusPicker(
   };
 }
 
+export interface CollectionPickerOption {
+  id: number | null;
+  label: string;
+}
+
+/**
+ * Collection picker for toolkit dialog windows. Native HTML <select> popups
+ * do not open reliably there, so the option list is rendered in-document.
+ */
+export function buildCollectionPicker(
+  doc: Document,
+  options: CollectionPickerOption[],
+  selected: number | null,
+): { el: HTMLElement; get value(): number | null } {
+  const root = html(doc, "div", "st-collectionpicker");
+  const trigger = html(
+    doc,
+    "button",
+    "st-collectionpicker-trigger",
+  ) as HTMLButtonElement;
+  trigger.type = "button";
+  trigger.setAttribute("aria-expanded", "false");
+
+  const triggerLabel = html(doc, "span", "st-collectionpicker-label");
+  const chevron = html(doc, "span", "st-collectionpicker-chevron");
+  chevron.textContent = "▾";
+  trigger.append(triggerLabel, chevron);
+
+  const menu = html(doc, "div", "st-collectionpicker-menu");
+  menu.hidden = true;
+  let value: number | null = selected;
+  const rows = new Map<string, HTMLElement>();
+
+  const keyFor = (id: number | null) => (id == null ? "root" : String(id));
+  const selectedOption = () =>
+    options.find((option) => option.id === value) || options[0];
+
+  const sync = () => {
+    triggerLabel.textContent = selectedOption()?.label || "—";
+    for (const [key, row] of rows) {
+      row.classList.toggle(
+        "st-collectionpicker-option--selected",
+        key === keyFor(value),
+      );
+    }
+  };
+
+  for (const option of options) {
+    const row = html(
+      doc,
+      "button",
+      "st-collectionpicker-option",
+    ) as HTMLButtonElement;
+    row.type = "button";
+    row.textContent = option.label;
+    row.dataset.collectionId = keyFor(option.id);
+    row.addEventListener("click", () => {
+      value = option.id;
+      sync();
+      menu.hidden = true;
+      trigger.setAttribute("aria-expanded", "false");
+      trigger.focus();
+    });
+    rows.set(keyFor(option.id), row);
+    menu.appendChild(row);
+  }
+
+  trigger.addEventListener("click", () => {
+    menu.hidden = !menu.hidden;
+    trigger.setAttribute("aria-expanded", menu.hidden ? "false" : "true");
+  });
+
+  root.append(trigger, menu);
+  sync();
+  return {
+    el: root,
+    get value(): number | null {
+      return value;
+    },
+  };
+}
+
 /** Resolve the display title of a library item, or null if it is gone. */
 export function getItemTitle(
   libraryID: number,

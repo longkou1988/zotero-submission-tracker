@@ -14,7 +14,13 @@ import {
   chooseDefaultCollectionID,
 } from "./collectionPlacement";
 import { refreshDashboard } from "./dashboard";
-import { buildStatusPicker, html, statusBadge, statusLabel } from "./ui";
+import {
+  buildCollectionPicker,
+  buildStatusPicker,
+  html,
+  statusBadge,
+  statusLabel,
+} from "./ui";
 
 function getAvailableCollections(libraryID: number): Zotero.Collection[] {
   try {
@@ -261,39 +267,24 @@ export async function openCreateDialog(items: Zotero.Item[]): Promise<void> {
       const targetLibraryID =
         items[0]?.libraryID || Zotero.Libraries.userLibraryID;
       const collections = getAvailableCollections(targetLibraryID);
-      const collectionSelect = html(
-        doc,
-        "select",
-        "st-input",
-      ) as HTMLSelectElement;
-      const rootOption = doc.createElementNS(
-        "http://www.w3.org/1999/xhtml",
-        "option",
-      ) as HTMLOptionElement;
-      rootOption.value = "";
-      rootOption.textContent = getString("dialog-collection-root");
-      collectionSelect.appendChild(rootOption);
-      for (const optionData of buildCollectionOptions(collections)) {
-        const option = doc.createElementNS(
-          "http://www.w3.org/1999/xhtml",
-          "option",
-        ) as HTMLOptionElement;
-        option.value = String(optionData.id);
-        option.textContent = optionData.label;
-        collectionSelect.appendChild(option);
-      }
       const defaultCollectionID = chooseDefaultCollectionID(
         getSelectedCollectionIDs(targetLibraryID),
         getRememberedCollectionID(targetLibraryID),
         collections,
       );
-      collectionSelect.value =
-        defaultCollectionID == null ? "" : String(defaultCollectionID);
+      const collectionPicker = buildCollectionPicker(
+        doc,
+        [
+          { id: null, label: getString("dialog-collection-root") },
+          ...buildCollectionOptions(collections),
+        ],
+        defaultCollectionID,
+      );
       form.appendChild(
         buildField(
           doc,
           getString("dialog-collection"),
-          [collectionSelect],
+          [collectionPicker.el],
           getString("dialog-collection-hint"),
         ),
       );
@@ -373,9 +364,7 @@ export async function openCreateDialog(items: Zotero.Item[]): Promise<void> {
         save.disabled = true;
         try {
           const date = dateInput.value || todayStr();
-          const selectedCollectionID = collectionSelect.value
-            ? Number(collectionSelect.value)
-            : null;
+          const selectedCollectionID = collectionPicker.value;
           setPref(
             "collection.lastTarget",
             `${targetLibraryID}:${selectedCollectionID == null ? "root" : selectedCollectionID}`,
