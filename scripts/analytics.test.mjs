@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { computeSubmissionAnalytics } from "../src/modules/analytics.ts";
+import {
+  computeSubmissionAnalytics,
+  getJournalBarWidths,
+  getOutcomeChartSegments,
+} from "../src/modules/analytics.ts";
 
 function record(id, journal, currentStatus, createdAt = Date.UTC(2026, 0, 1)) {
   return {
@@ -124,4 +128,31 @@ test("journal performance aggregates attempts, outcomes, and decision time", () 
       averageFirstDecisionDays: null,
     },
   ]);
+});
+
+test("outcome chart segments expose count, share, and cumulative positions", () => {
+  const segments = getOutcomeChartSegments({
+    total: 10,
+    active: 5,
+    accepted: 3,
+    rejected: 2,
+    withdrawn: 0,
+  });
+
+  assert.deepEqual(segments, [
+    { key: "active", count: 5, percent: 50, startPercent: 0, endPercent: 50 },
+    { key: "accepted", count: 3, percent: 30, startPercent: 50, endPercent: 80 },
+    { key: "rejected", count: 2, percent: 20, startPercent: 80, endPercent: 100 },
+    { key: "withdrawn", count: 0, percent: 0, startPercent: 100, endPercent: 100 },
+  ]);
+});
+
+test("journal bar widths are scaled to the busiest journal", () => {
+  const widths = getJournalBarWidths([
+    { journal: "Journal A", submissions: 5 },
+    { journal: "Journal B", submissions: 2 },
+    { journal: "Journal C", submissions: 1 },
+  ]);
+
+  assert.deepEqual(widths, [100, 40, 20]);
 });
