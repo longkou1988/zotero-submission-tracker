@@ -18,12 +18,12 @@ Manage the full journal-submission workflow inside Zotero — from preparation a
 
 ## 界面总览 · Interface Overview
 
-| 投稿管理面板 Submission Dashboard | 条目面板区块 Item Pane Section |
-| --- | --- |
+| 投稿管理面板 Submission Dashboard       | 条目面板区块 Item Pane Section         |
+| --------------------------------------- | -------------------------------------- |
 | ![Dashboard](screenshots/dashboard.png) | ![Item pane](screenshots/itempane.png) |
 
-| 添加投稿 Add Submission | 状态页快捷入口 Status Page Tab |
-| --- | --- |
+| 添加投稿 Add Submission                          | 状态页快捷入口 Status Page Tab             |
+| ------------------------------------------------ | ------------------------------------------ |
 | ![Add submission dialog](screenshots/dialog.png) | ![Status page](screenshots/statuspage.png) |
 
 > 截图用于展示主要交互结构；v0.6.x 已在此基础上新增“投稿分析 Dashboard”、Collection 分类选择、下一步建议与催稿助手，具体布局可能与旧截图略有差异。  
@@ -31,14 +31,14 @@ Manage the full journal-submission workflow inside Zotero — from preparation a
 
 ### 当前主要界面 · Current Main Views
 
-| 界面 / View | 入口 / Entry | 用途 / Purpose |
-| --- | --- | --- |
-| 投稿管理 / Submission Dashboard | `工具 → 打开投稿管理` / `Tools → Open Submission Dashboard` | 全局查看投稿、搜索、筛选、跟进与状态页入口 / Global records, search, filters, follow-up and status-page access |
-| 投稿分析 / Submission Analytics | `工具 → 投稿分析` / `Tools → Submission Analytics` | KPI、结果分布、年度趋势、期刊表现和交互下钻 / KPIs, outcome distribution, yearly trend, journal performance and drill-down |
-| 投稿详情 / Submission Details | 条目面板或 Dashboard 中点“详情” / Open from item pane or dashboard | 状态时间线、稿件编号、网址、跟进日期、备注 / Timeline, manuscript ID, URL, follow-up date and notes |
-| 下一步建议 / Smart Next Action | 投稿记录菜单 / Submission Records menu | 根据当前状态和等待时长给出下一步动作 / Recommends the next action from status and elapsed time |
-| 催稿助手 / Inquiry Assistant | 投稿记录菜单 / Submission Records menu | 本地生成中英文催稿邮件模板 / Generates Chinese and English inquiry templates locally |
-| 添加投稿 / Add Submission | 右键文献 → 投稿记录 → 添加投稿记录 / Right-click item → Submission Records → Add Submission | 新建投稿并选择保存到 Zotero Collection / Create a submission and choose its Zotero Collection |
+| 界面 / View                     | 入口 / Entry                                                                                | 用途 / Purpose                                                                                                             |
+| ------------------------------- | ------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| 投稿管理 / Submission Dashboard | `工具 → 打开投稿管理` / `Tools → Open Submission Dashboard`                                 | 全局查看投稿、搜索、筛选、跟进与状态页入口 / Global records, search, filters, follow-up and status-page access             |
+| 投稿分析 / Submission Analytics | `工具 → 投稿分析` / `Tools → Submission Analytics`                                          | KPI、结果分布、年度趋势、期刊表现和交互下钻 / KPIs, outcome distribution, yearly trend, journal performance and drill-down |
+| 投稿详情 / Submission Details   | 条目面板或 Dashboard 中点“详情” / Open from item pane or dashboard                          | 状态时间线、稿件编号、网址、跟进日期、备注 / Timeline, manuscript ID, URL, follow-up date and notes                        |
+| 下一步建议 / Smart Next Action  | 投稿记录菜单 / Submission Records menu                                                      | 根据当前状态和等待时长给出下一步动作 / Recommends the next action from status and elapsed time                             |
+| 催稿助手 / Inquiry Assistant    | 投稿记录菜单 / Submission Records menu                                                      | 本地生成中英文催稿邮件模板 / Generates Chinese and English inquiry templates locally                                       |
+| 添加投稿 / Add Submission       | 右键文献 → 投稿记录 → 添加投稿记录 / Right-click item → Submission Records → Add Submission | 新建投稿并选择保存到 Zotero Collection / Create a submission and choose its Zotero Collection                              |
 
 ---
 
