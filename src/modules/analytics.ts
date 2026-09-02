@@ -1,8 +1,7 @@
-import {
-  ACTIVE_STATUSES,
-  type StatusEvent,
-  type SubmissionRecord,
-  type SubmissionStatus,
+import type {
+  StatusEvent,
+  SubmissionRecord,
+  SubmissionStatus,
 } from "../types";
 
 export interface AnalyticsSubmission {
@@ -37,6 +36,15 @@ export interface SubmissionAnalytics {
   journals: JournalAnalytics[];
 }
 
+const ACTIVE_STATUS_SET = new Set<SubmissionStatus>([
+  "draft",
+  "submitted",
+  "with_editor",
+  "under_review",
+  "major_revision",
+  "minor_revision",
+]);
+
 const FIRST_DECISION_STATUSES = new Set<SubmissionStatus>([
   "major_revision",
   "minor_revision",
@@ -66,7 +74,7 @@ export function computeSubmissionAnalytics(
 
   for (const input of submissions) {
     const { record } = input;
-    if (ACTIVE_STATUSES.includes(record.currentStatus)) active += 1;
+    if (ACTIVE_STATUS_SET.has(record.currentStatus)) active += 1;
     if (record.currentStatus === "accepted") accepted += 1;
     if (record.currentStatus === "rejected") rejected += 1;
     if (record.currentStatus === "withdrawn") withdrawn += 1;
@@ -87,7 +95,9 @@ export function computeSubmissionAnalytics(
     journalStats.submissions += 1;
     if (record.currentStatus === "accepted") journalStats.accepted += 1;
     if (record.currentStatus === "rejected") journalStats.rejected += 1;
-    if (firstDecisionDays != null) journalStats.decisionDays.push(firstDecisionDays);
+    if (firstDecisionDays != null) {
+      journalStats.decisionDays.push(firstDecisionDays);
+    }
     journalMap.set(journal, journalStats);
   }
 
