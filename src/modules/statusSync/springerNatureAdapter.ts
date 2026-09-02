@@ -138,9 +138,9 @@ export function parseSpringerStatusDocument(
   documentLike: SpringerDocumentLike,
 ): SpringerStatusObservation {
   const headline = documentLike.querySelector(STATUS_HEADLINE_SELECTOR);
-  const texts = Array.from(documentLike.querySelectorAll(STATUS_TEXT_SELECTOR)).map(
-    (element) => String(element.textContent || ""),
-  );
+  const texts = Array.from(
+    documentLike.querySelectorAll(STATUS_TEXT_SELECTOR),
+  ).map((element) => String(element.textContent || ""));
   return parseSpringerStatusFields({
     headline: headline?.textContent,
     texts,
