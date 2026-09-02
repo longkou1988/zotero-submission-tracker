@@ -1,0 +1,44 @@
+name: Fix SVG typing temp
+
+on:
+  push:
+    branches:
+      - feature/v0.6.0-analytics-dashboard
+    paths:
+      - .github/workflows/fix-svg-typing-temp.yml
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup JS
+        uses: zotero-plugin-dev/workflows/setup-js@main
+      - name: Fix SVG DOM typing
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path("src/modules/analyticsDashboard.ts")
+          text = path.read_text()
+          old_create = 'const svg = doc.createElementNS(SVG_NS, "svg") as SVGSVGElement;'
+          new_create = 'const svg = doc.createElementNS(SVG_NS, "svg");'
+          old_style = 'svg.style.maxWidth = "100%";'
+          new_style = 'svg.setAttribute("style", "max-width: 100%;");'
+          if old_create not in text:
+              raise SystemExit("SVG cast line not found")
+          if old_style not in text:
+              raise SystemExit("SVG style line not found")
+          text = text.replace(old_create, new_create, 1).replace(old_style, new_style, 1)
+          path.write_text(text)
+          PY
+      - name: Format dashboard
+        run: npx prettier --write src/modules/analyticsDashboard.ts
+      - name: Commit fix
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/modules/analyticsDashboard.ts
+          git commit -m "fix: avoid svg type assertion"
+          git push origin HEAD:feature/v0.6.0-analytics-dashboard
