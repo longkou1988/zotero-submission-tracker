@@ -20,7 +20,7 @@ jobs:
           node-version: 24
       - run: npm install
       - run: python scripts/patch_interactive_temp.py
-      - run: npx prettier --write src/modules/analyticsDashboard.ts src/modules/analytics.ts scripts/analytics.test.mjs addon/locale/zh-CN/addon.ftl addon/locale/en-US/addon.ftl
+      - run: npx prettier --write src/modules/analyticsDashboard.ts src/modules/analytics.ts scripts/analytics.test.mjs
       - run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
