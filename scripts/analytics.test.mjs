@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   computeSubmissionAnalytics,
+  filterAnalyticsSubmissions,
   filterVisibleSubmissionRecords,
   getJournalBarWidths,
   getOutcomeChartSegments,
@@ -60,6 +61,59 @@ test("trashed or missing Zotero items are excluded from analytics records", () =
   assert.deepEqual(
     visible.map((item) => item.journal),
     ["Journal A"],
+  );
+});
+
+test("interactive analytics filters combine year status journal and outcome", () => {
+  const submissions = [
+    {
+      record: record(1, "Journal A", "under_review"),
+      events: [event(1, 1, "submitted", "2026-01-03")],
+    },
+    {
+      record: record(2, "Journal A", "accepted"),
+      events: [
+        event(2, 2, "submitted", "2026-02-01"),
+        event(3, 2, "accepted", "2026-03-01"),
+      ],
+    },
+    {
+      record: record(3, "Journal B", "under_review"),
+      events: [event(4, 3, "submitted", "2025-05-01")],
+    },
+  ];
+
+  assert.deepEqual(
+    filterAnalyticsSubmissions(submissions, {
+      year: 2026,
+      status: "under_review",
+      journal: "Journal A",
+      outcome: "active",
+    }).map((item) => item.record.id),
+    [1],
+  );
+});
+
+test("interactive outcome filters map accepted rejected withdrawn and active correctly", () => {
+  const submissions = [
+    { record: record(1, "A", "draft"), events: [] },
+    { record: record(2, "A", "major_revision"), events: [] },
+    { record: record(3, "A", "accepted"), events: [] },
+    { record: record(4, "A", "rejected"), events: [] },
+    { record: record(5, "A", "withdrawn"), events: [] },
+  ];
+
+  assert.deepEqual(
+    filterAnalyticsSubmissions(submissions, { outcome: "active" }).map(
+      (item) => item.record.id,
+    ),
+    [1, 2],
+  );
+  assert.deepEqual(
+    filterAnalyticsSubmissions(submissions, { outcome: "accepted" }).map(
+      (item) => item.record.id,
+    ),
+    [3],
   );
 });
 
