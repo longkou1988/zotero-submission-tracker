@@ -171,3 +171,21 @@ test("revision due date is not treated as a provider status date", () => {
   assert.equal(observation.sourceStatusDate, null);
   assert.equal(observation.revisionDueDate, "2026-09-15");
 });
+
+test("session manager reuses Zotero default web session without reading cookies", () => {
+  const source = readFileSync(
+    new URL("../src/modules/statusSync/sessionManager.ts", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(source, /chrome:\/\/zotero\/content\/zotero\/HiddenBrowser\.mjs/);
+  assert.match(source, /new\s+HiddenBrowser\s*\(\s*\{\s*allowJavaScript:\s*true\s*\}\s*\)/s);
+  assert.match(source, /getPageData\s*\(\s*\[\s*["']documentHTML["']\s*\]\s*\)/);
+  assert.match(source, /waitForDocument/);
+  assert.match(source, /destroy\s*\(\s*\)/);
+  assert.doesNotMatch(source, /newCookieContext|userContextId|usercontextid/i);
+  assert.doesNotMatch(source, /getDocument\s*\(/);
+  assert.doesNotMatch(source, /getPageData\s*\([^)]*["']cookie["']/s);
+  assert.doesNotMatch(source, /localStorage|sessionStorage|Authorization/);
+  assert.doesNotMatch(source, /log\s*\([^)]*documentHTML/s);
+});
