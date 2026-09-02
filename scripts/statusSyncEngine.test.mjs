@@ -34,6 +34,7 @@ function makeState(overrides = {}) {
     rawStatus: "Under Review",
     normalizedStatus: "under_review",
     confidence: "high",
+    detailLabel: null,
     authState: "connected",
     lastAttemptAt: NOW - 21_600_000,
     lastSuccessAt: NOW - 21_600_000,
@@ -50,6 +51,7 @@ function makeSnapshot(overrides = {}) {
   return {
     provider: "springer_nature",
     rawStatus: "Under Review",
+    providerDetailCode: null,
     sourceStatusDate: "2026-09-02",
     manuscriptId: "SN-2026-001",
     articleTitle: null,
@@ -105,6 +107,7 @@ function buildHarness({
         rawStatus: update.snapshot.rawStatus,
         normalizedStatus: update.normalization.canonicalStatus,
         confidence: update.normalization.confidence,
+        detailLabel: update.normalization.detailLabel,
         authState: update.authState ?? "connected",
         lastAttemptAt: update.snapshot.detectedAt,
         lastSuccessAt: update.snapshot.detectedAt,
@@ -173,6 +176,32 @@ test("unchanged provider state updates success metadata without history", async 
   assert.equal(calls.recordSuccess.length, 1);
   assert.deepEqual(calls.history, []);
   assert.deepEqual(calls.addEvent, []);
+});
+
+test("adapter normalization receives the full provider snapshot", async () => {
+  let normalizedSnapshot = null;
+  const snapshot = makeSnapshot({
+    rawStatus: "Action needed",
+    providerDetailCode: "revision_requested",
+    sourceStatusDate: null,
+  });
+  const { engine, calls } = buildHarness({
+    snapshot,
+    normalize: (receivedSnapshot) => {
+      normalizedSnapshot = receivedSnapshot;
+      return {
+        canonicalStatus: null,
+        confidence: "unknown",
+        detailLabel: "Revision requested",
+      };
+    },
+  });
+
+  const result = await engine.syncOne(7);
+
+  assert.equal(result.outcome, "unknown_status");
+  assert.equal(normalizedSnapshot, snapshot);
+  assert.equal(calls.recordSuccess[0].update.normalization.detailLabel, "Revision requested");
 });
 
 test("raw status change within the same canonical state records raw history only", async () => {
