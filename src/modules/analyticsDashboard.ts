@@ -220,13 +220,13 @@ function buildDonutChart(
   wrap.style.alignItems = "center";
   wrap.style.minHeight = "190px";
 
-  const svg = doc.createElementNS(SVG_NS, "svg") as SVGSVGElement;
+  const svg = doc.createElementNS(SVG_NS, "svg");
   svg.setAttribute("viewBox", "0 0 120 120");
   svg.setAttribute("width", "190");
   svg.setAttribute("height", "190");
   svg.setAttribute("role", "img");
   svg.setAttribute("aria-label", getString("analytics-outcome-title"));
-  svg.style.maxWidth = "100%";
+  svg.setAttribute("style", "max-width: 100%;");
 
   const track = doc.createElementNS(SVG_NS, "circle");
   track.setAttribute("cx", "60");
