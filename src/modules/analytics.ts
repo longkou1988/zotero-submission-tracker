@@ -88,7 +88,10 @@ export function filterAnalyticsSubmissions(
 ): AnalyticsSubmission[] {
   return submissions.filter((input) => {
     const { record, events } = input;
-    if (filter.year != null && getSubmissionYear(record, events) !== filter.year) {
+    if (
+      filter.year != null &&
+      getSubmissionYear(record, events) !== filter.year
+    ) {
       return false;
     }
     if (filter.status && record.currentStatus !== filter.status) {

@@ -46,3 +46,13 @@ analytics-submissions = Submissions
 analytics-average-days = Avg. first decision
 analytics-days = { $count } days
 analytics-no-data = No calculable data
+
+analytics-filter-year = Year
+analytics-filter-status = Status
+analytics-filter-journal = Journal
+analytics-filter-all = All
+analytics-filter-reset = Reset filters
+analytics-filter-outcome = Drill-down
+analytics-filter-empty = No submissions match the current filters
+analytics-records-title = Submission records ({ $count })
+analytics-open-detail = Details

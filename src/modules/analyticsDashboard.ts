@@ -1,15 +1,21 @@
 import { config } from "../../package.json";
 import { db } from "../db";
+import { STATUS_LIST } from "../types";
 import { getString } from "../utils/locale";
 import {
   computeSubmissionAnalytics,
+  filterAnalyticsSubmissions,
   filterVisibleSubmissionRecords,
+  getSubmissionYear,
   getJournalBarWidths,
   getOutcomeChartSegments,
+  type AnalyticsFilter,
+  type AnalyticsSubmission,
   type OutcomeChartKey,
   type SubmissionAnalytics,
 } from "./analytics";
-import { html } from "./ui";
+import { openDetailDialog } from "./dialog";
+import { getItemTitle, html, statusBadge, statusLabel } from "./ui";
 
 const TAB_ID = `${config.addonRef}-analytics-dashboard`;
 const SVG_NS = "http://www.w3.org/2000/svg";
@@ -25,6 +31,13 @@ let unsubscribe: (() => void) | null = null;
 let itemNotifierID: string | null = null;
 let rootEl: HTMLElement | null = null;
 let refreshTimer: number | null = null;
+let allSubmissions: AnalyticsSubmission[] = [];
+const filterState: AnalyticsFilter = {
+  year: null,
+  status: null,
+  journal: null,
+  outcome: null,
+};
 
 export function openAnalyticsDashboard(): void {
   const win = Zotero.getMainWindow() as any;
@@ -127,22 +140,33 @@ async function refresh(): Promise<void> {
       return item ? { deleted: item.deleted } : undefined;
     },
   );
-  const submissions = await Promise.all(
+  allSubmissions = await Promise.all(
     records.map(async (record) => ({
       record,
       events: await db.getEvents(record.id),
     })),
   );
-  const analytics = computeSubmissionAnalytics(submissions);
+  const filteredSubmissions = filterAnalyticsSubmissions(
+    allSubmissions,
+    filterState,
+  );
+  const analytics = computeSubmissionAnalytics(filteredSubmissions);
 
   while (rootEl.children.length > 1) {
     rootEl.lastElementChild?.remove();
   }
 
   const doc = rootEl.ownerDocument as Document;
-  if (!analytics.total) {
+  rootEl.appendChild(buildFilterBar(doc));
+  if (!allSubmissions.length) {
     const empty = html(doc, "div", "st-dash-empty");
     empty.textContent = getString("analytics-empty");
+    rootEl.appendChild(empty);
+    return;
+  }
+  if (!analytics.total) {
+    const empty = html(doc, "div", "st-dash-empty");
+    empty.textContent = getString("analytics-filter-empty");
     rootEl.appendChild(empty);
     return;
   }
@@ -159,6 +183,166 @@ async function refresh(): Promise<void> {
   );
   rootEl.appendChild(grid);
   rootEl.appendChild(buildJournalPanel(doc, analytics));
+  rootEl.appendChild(buildSubmissionList(doc, filteredSubmissions));
+}
+
+function buildFilterBar(doc: Document): HTMLElement {
+  const bar = html(doc, "div", "st-dash-toolbar");
+  bar.style.display = "flex";
+  bar.style.flexWrap = "wrap";
+  bar.style.gap = "8px";
+  bar.style.alignItems = "center";
+  const makeSelect = (labelText: string) => {
+    const wrap = html(doc, "label");
+    wrap.style.display = "flex";
+    wrap.style.alignItems = "center";
+    wrap.style.gap = "5px";
+    wrap.style.fontSize = "11.5px";
+    const label = html(doc, "span");
+    label.textContent = labelText;
+    const select = html(doc, "select", "st-input") as HTMLSelectElement;
+    select.style.width = "auto";
+    select.style.minWidth = "120px";
+    wrap.append(label, select);
+    return { wrap, select };
+  };
+  const years = Array.from(
+    new Set(
+      allSubmissions.map((item) => getSubmissionYear(item.record, item.events)),
+    ),
+  ).sort((a, b) => b - a);
+  const year = makeSelect(getString("analytics-filter-year"));
+  addOption(doc, year.select, "", getString("analytics-filter-all"));
+  for (const value of years)
+    addOption(doc, year.select, String(value), String(value));
+  year.select.value = filterState.year == null ? "" : String(filterState.year);
+  year.select.addEventListener("change", () => {
+    filterState.year = year.select.value ? Number(year.select.value) : null;
+    void refresh();
+  });
+  const status = makeSelect(getString("analytics-filter-status"));
+  addOption(doc, status.select, "", getString("analytics-filter-all"));
+  for (const value of STATUS_LIST)
+    addOption(doc, status.select, value, statusLabel(value));
+  status.select.value = filterState.status || "";
+  status.select.addEventListener("change", () => {
+    filterState.status = (status.select.value ||
+      null) as AnalyticsFilter["status"];
+    filterState.outcome = null;
+    void refresh();
+  });
+  const journals = Array.from(
+    new Set(
+      allSubmissions.map((item) => item.record.journal.trim()).filter(Boolean),
+    ),
+  ).sort((a, b) => a.localeCompare(b));
+  const journal = makeSelect(getString("analytics-filter-journal"));
+  addOption(doc, journal.select, "", getString("analytics-filter-all"));
+  for (const value of journals) addOption(doc, journal.select, value, value);
+  journal.select.value = filterState.journal || "";
+  journal.select.addEventListener("change", () => {
+    filterState.journal = journal.select.value || null;
+    void refresh();
+  });
+  const reset = html(doc, "button", "st-btn") as HTMLButtonElement;
+  reset.textContent = getString("analytics-filter-reset");
+  reset.addEventListener("click", () => {
+    filterState.year = null;
+    filterState.status = null;
+    filterState.journal = null;
+    filterState.outcome = null;
+    void refresh();
+  });
+  bar.append(year.wrap, status.wrap, journal.wrap, reset);
+  if (filterState.outcome) {
+    const chip = html(
+      doc,
+      "button",
+      "st-chip st-chip--active",
+    ) as HTMLButtonElement;
+    chip.textContent = `${getString("analytics-filter-outcome")}: ${getOutcomeLabel(filterState.outcome)} ×`;
+    chip.addEventListener("click", () => setOutcomeFilter(null));
+    bar.appendChild(chip);
+  }
+  return bar;
+}
+function addOption(
+  doc: Document,
+  select: HTMLSelectElement,
+  value: string,
+  label: string,
+): void {
+  const option = doc.createElementNS(
+    "http://www.w3.org/1999/xhtml",
+    "option",
+  ) as HTMLOptionElement;
+  option.value = value;
+  option.textContent = label;
+  select.appendChild(option);
+}
+function setOutcomeFilter(outcome: OutcomeChartKey | null): void {
+  filterState.outcome = filterState.outcome === outcome ? null : outcome;
+  filterState.status = null;
+  void refresh();
+}
+function setYearFilter(year: number): void {
+  filterState.year = filterState.year === year ? null : year;
+  void refresh();
+}
+function setJournalFilter(journal: string): void {
+  filterState.journal = filterState.journal === journal ? null : journal;
+  void refresh();
+}
+function buildSubmissionList(
+  doc: Document,
+  submissions: AnalyticsSubmission[],
+): HTMLElement {
+  const panel = buildPanel(
+    doc,
+    getString("analytics-records-title", {
+      args: { count: submissions.length },
+    }),
+  );
+  for (const input of submissions) {
+    const row = html(doc, "div");
+    row.style.display = "grid";
+    row.style.gridTemplateColumns =
+      "minmax(180px, 1.5fr) minmax(150px, 1fr) 130px 70px 86px";
+    row.style.alignItems = "center";
+    row.style.gap = "8px";
+    row.style.padding = "8px 6px";
+    row.style.borderBottom =
+      "1px solid color-mix(in srgb, currentColor 8%, transparent)";
+    const title = html(doc, "div");
+    title.textContent =
+      getItemTitle(input.record.libraryID, input.record.itemKey) ||
+      input.record.journal ||
+      "—";
+    title.style.overflow = "hidden";
+    title.style.textOverflow = "ellipsis";
+    title.style.whiteSpace = "nowrap";
+    const journal = html(doc, "button", "st-chip") as HTMLButtonElement;
+    journal.textContent = input.record.journal || "—";
+    journal.title = input.record.journal;
+    journal.addEventListener("click", () =>
+      setJournalFilter(input.record.journal),
+    );
+    const status = statusBadge(doc, input.record.currentStatus);
+    const year = html(doc, "button", "st-chip") as HTMLButtonElement;
+    const submissionYear = getSubmissionYear(input.record, input.events);
+    year.textContent = String(submissionYear);
+    year.addEventListener("click", () => setYearFilter(submissionYear));
+    const detail = html(
+      doc,
+      "button",
+      "st-btn st-btn--sm",
+    ) as HTMLButtonElement;
+    detail.textContent = getString("analytics-open-detail");
+    detail.addEventListener("click", () => openDetailDialog(input.record));
+    row.append(title, journal, status, year, detail);
+    panel.appendChild(row);
+  }
+  return panel;
 }
 
 function buildKpis(doc: Document, analytics: SubmissionAnalytics): HTMLElement {
@@ -189,7 +373,28 @@ function buildKpis(doc: Document, analytics: SubmissionAnalytics): HTMLElement {
 
   for (const [label, value, hint] of cards) {
     const card = html(doc, "div", "st-card");
-    card.style.cursor = "default";
+    const outcome =
+      label === getString("analytics-active")
+        ? "active"
+        : label === getString("analytics-accepted")
+          ? "accepted"
+          : label === getString("analytics-rejected")
+            ? "rejected"
+            : null;
+    const clickable = outcome || label === getString("analytics-total");
+    card.style.cursor = clickable ? "pointer" : "default";
+    if (clickable) {
+      card.setAttribute("role", "button");
+      card.setAttribute("tabindex", "0");
+      const activate = () => setOutcomeFilter(outcome);
+      card.addEventListener("click", activate);
+      card.addEventListener("keydown", (event: KeyboardEvent) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          activate();
+        }
+      });
+    }
     if (hint) card.title = hint;
     const num = html(doc, "div", "st-card-num");
     num.textContent = value;
@@ -279,6 +484,8 @@ function buildDonutChart(
     );
     circle.setAttribute("stroke-dashoffset", String(-segment.startPercent));
     circle.setAttribute("transform", "rotate(-90 60 60)");
+    circle.setAttribute("style", "cursor: pointer;");
+    circle.addEventListener("click", () => setOutcomeFilter(segment.key));
 
     const title = doc.createElementNS(SVG_NS, "title");
     title.textContent = `${getOutcomeLabel(segment.key)}: ${segment.count} (${formatChartPercent(segment.percent)})`;
@@ -326,6 +533,9 @@ function buildOutcomeLegend(
     row.style.alignItems = "center";
     row.style.gap = "7px";
     row.style.padding = "5px 0";
+    row.style.cursor = "pointer";
+    row.setAttribute("role", "button");
+    row.addEventListener("click", () => setOutcomeFilter(segment.key));
 
     const dot = html(doc, "span");
     dot.style.width = "9px";
@@ -430,6 +640,9 @@ function buildYearlyPanel(
     column.style.justifyItems = "center";
     column.style.minWidth = "52px";
     column.style.flex = "1 0 52px";
+    column.style.cursor = "pointer";
+    column.setAttribute("role", "button");
+    column.addEventListener("click", () => setYearFilter(item.year));
 
     const value = html(doc, "div");
     value.textContent = String(item.count);
@@ -503,6 +716,7 @@ function buildJournalPanel(
   );
 
   for (const journal of analytics.journals) {
+    const start = table.children.length;
     appendTableRow(doc, table, [
       journal.journal,
       String(journal.submissions),
@@ -510,6 +724,13 @@ function buildJournalPanel(
       String(journal.rejected),
       formatDays(journal.averageFirstDecisionDays),
     ]);
+    for (let index = start; index < start + 5; index += 1) {
+      const cell = table.children[index] as HTMLElement | undefined;
+      if (cell) {
+        cell.style.cursor = "pointer";
+        cell.addEventListener("click", () => setJournalFilter(journal.journal));
+      }
+    }
   }
 
   panel.appendChild(table);
@@ -538,6 +759,9 @@ function buildJournalBars(
       "minmax(150px, 240px) minmax(150px, 1fr) 52px";
     row.style.alignItems = "center";
     row.style.gap = "9px";
+    row.style.cursor = "pointer";
+    row.setAttribute("role", "button");
+    row.addEventListener("click", () => setJournalFilter(journal.journal));
 
     const label = html(doc, "div");
     label.textContent = journal.journal;

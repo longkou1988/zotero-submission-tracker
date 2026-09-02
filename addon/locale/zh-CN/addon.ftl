@@ -46,3 +46,13 @@ analytics-submissions = 投稿次数
 analytics-average-days = 平均首次决定
 analytics-days = { $count } 天
 analytics-no-data = 暂无可计算数据
+
+analytics-filter-year = 年份
+analytics-filter-status = 状态
+analytics-filter-journal = 期刊
+analytics-filter-all = 全部
+analytics-filter-reset = 重置筛选
+analytics-filter-outcome = 当前下钻
+analytics-filter-empty = 当前筛选条件下没有投稿记录
+analytics-records-title = 投稿记录（{ $count }）
+analytics-open-detail = 详情
