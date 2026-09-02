@@ -14,9 +14,9 @@ const collections = [
 
 test("collection options include nested paths and exclude deleted collections", () => {
   assert.deepEqual(buildCollectionOptions(collections), [
-    { id: 12, label: "Research / FoMO-AI / Accepted" },
-    { id: 11, label: "Research / FoMO-AI" },
     { id: 10, label: "Research" },
+    { id: 11, label: "Research / FoMO-AI" },
+    { id: 12, label: "Research / FoMO-AI / Accepted" },
   ]);
 });
 
