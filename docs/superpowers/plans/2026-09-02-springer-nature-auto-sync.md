@@ -81,11 +81,13 @@ Existing files expected to change:
 ### Task 1: Provider contracts and Springer URL recognition
 
 **Files:**
+
 - Create: `src/modules/statusSync/types.ts`
 - Create: `src/modules/statusSync/providerRegistry.ts`
 - Test: `scripts/statusSyncProvider.test.mjs`
 
 **Interfaces:**
+
 - Produces:
   - `type ProviderKind = "springer_nature"`
   - `interface ProviderSnapshot`
@@ -107,7 +109,8 @@ import {
 } from "../src/modules/statusSync/providerRegistry.ts";
 
 test("recognizes an HTTPS Springer Nature submission-details URL", () => {
-  const url = "https://submission.springernature.com/submission-details/8622dda6-8179-49d7-9ad9-bbda50fb382b";
+  const url =
+    "https://submission.springernature.com/submission-details/8622dda6-8179-49d7-9ad9-bbda50fb382b";
   assert.equal(isSpringerNatureSubmissionUrl(url), true);
   assert.equal(recognizeProvider(url), "springer_nature");
 });
@@ -151,20 +154,27 @@ export interface ProviderSnapshot {
   detectedAt: number;
 }
 
-export function isSpringerNatureSubmissionUrl(statusUrl: string | null): boolean {
+export function isSpringerNatureSubmissionUrl(
+  statusUrl: string | null,
+): boolean {
   if (!statusUrl) return false;
   try {
     const url = new URL(statusUrl);
     if (url.protocol !== "https:") return false;
     if (url.hostname !== "submission.springernature.com") return false;
     const prefix = "/submission-details/";
-    return url.pathname.startsWith(prefix) && url.pathname.slice(prefix.length).length > 0;
+    return (
+      url.pathname.startsWith(prefix) &&
+      url.pathname.slice(prefix.length).length > 0
+    );
   } catch {
     return false;
   }
 }
 
-export function recognizeProvider(statusUrl: string | null): ProviderKind | null {
+export function recognizeProvider(
+  statusUrl: string | null,
+): ProviderKind | null {
   return isSpringerNatureSubmissionUrl(statusUrl) ? "springer_nature" : null;
 }
 ```
@@ -187,11 +197,13 @@ git commit -m "feat: recognize Springer Nature submission URLs"
 ### Task 2: Conservative normalization and legal transition state machine
 
 **Files:**
+
 - Create: `src/modules/statusSync/normalizer.ts`
 - Create: `src/modules/statusSync/transitionValidator.ts`
 - Test: `scripts/statusSyncRules.test.mjs`
 
 **Interfaces:**
+
 - Consumes: `SubmissionStatus` from `src/types.ts`; `NormalizationResult` from Task 1.
 - Produces:
   - `function normalizeExactStatus(rawStatus: string, mapping: Readonly<Record<string, { canonicalStatus: SubmissionStatus; detailLabel?: string | null }>>): NormalizationResult`
@@ -225,7 +237,8 @@ test("normalization is exact and conservative", () => {
     detailLabel: null,
   });
   assert.equal(
-    normalizeExactStatus("Editor evaluating recommendation", mapping).canonicalStatus,
+    normalizeExactStatus("Editor evaluating recommendation", mapping)
+      .canonicalStatus,
     null,
   );
 });
@@ -276,11 +289,13 @@ git commit -m "feat: add auto-sync status rules"
 ### Task 3: Scheduling math and single-flight queue contract
 
 **Files:**
+
 - Create: `src/modules/statusSync/schedule.ts`
 - Create: `src/modules/statusSync/scheduler.ts`
 - Test: `scripts/statusSyncSchedule.test.mjs`
 
 **Interfaces:**
+
 - Produces:
   - `const SYNC_INTERVAL_MS = 6 * 60 * 60 * 1000`
   - `const DASHBOARD_FRESHNESS_MS = 10 * 60 * 1000`
@@ -313,7 +328,10 @@ test("regular sync uses lastAttemptAt plus six hours", () => {
 });
 
 test("dashboard freshness blocks attempts in the last ten minutes", () => {
-  assert.equal(canDashboardTrigger(now - DASHBOARD_FRESHNESS_MS + 1, now), false);
+  assert.equal(
+    canDashboardTrigger(now - DASHBOARD_FRESHNESS_MS + 1, now),
+    false,
+  );
   assert.equal(canDashboardTrigger(now - DASHBOARD_FRESHNESS_MS, now), true);
 });
 ```
@@ -360,11 +378,13 @@ git commit -m "feat: add auto-sync scheduling"
 ### Task 4: Additive sync persistence and migration
 
 **Files:**
+
 - Create: `src/modules/statusSync/syncStore.ts`
 - Test: `scripts/statusSyncPersistence.test.mjs`
 - Modify: `src/hooks.ts` to initialize/close the sync store only after the store API is proven.
 
 **Interfaces:**
+
 - Produces:
   - `interface SyncStateRecord`
   - `interface SyncHistoryRecord`
@@ -425,10 +445,12 @@ git commit -m "feat: persist provider sync state"
 ### Task 5: Provider-neutral sync engine with canonical event safety
 
 **Files:**
+
 - Create: `src/modules/statusSync/engine.ts`
 - Test: `scripts/statusSyncEngine.test.mjs`
 
 **Interfaces:**
+
 - Consumes provider recognition, normalizer, transition validator, `SyncStore`, existing canonical `db.addEvent()` behavior.
 - Produces:
 
@@ -442,15 +464,26 @@ interface StatusProviderAdapter {
 
 interface EngineDeps {
   getSubmission(id: number): Promise<SubmissionRecord | undefined>;
-  addEvent(id: number, status: SubmissionStatus, date: string, note?: string): Promise<void>;
-  updateSubmission(id: number, fields: Partial<Pick<SubmissionRecord, "manuscriptId">>): Promise<void>;
+  addEvent(
+    id: number,
+    status: SubmissionStatus,
+    date: string,
+    note?: string,
+  ): Promise<void>;
+  updateSubmission(
+    id: number,
+    fields: Partial<Pick<SubmissionRecord, "manuscriptId">>,
+  ): Promise<void>;
   store: SyncStoreLike;
   getAdapter(provider: ProviderKind): StatusProviderAdapter | null;
   now(): number;
 }
 
 class StatusSyncEngine {
-  syncOne(submissionId: number, options?: { force?: boolean }): Promise<SyncRunResult>;
+  syncOne(
+    submissionId: number,
+    options?: { force?: boolean },
+  ): Promise<SyncRunResult>;
 }
 ```
 
@@ -524,11 +557,13 @@ git commit -m "feat: add safe status sync engine"
 ### Task 6: Build the development-only Springer probe and obtain a redacted fixture
 
 **Files:**
+
 - Create: `src/modules/statusSync/springerProbe.ts`
 - Create after observation: `scripts/fixtures/springer-nature/submission-details.json` or `scripts/fixtures/springer-nature/submission-details.html-fragment`
 - Test: `scripts/springerNatureAdapter.test.mjs` begins with fixture-redaction assertions.
 
 **Interfaces:**
+
 - Produces `runSpringerProbe(browserOrDocument): Promise<SpringerProbeResult>`.
 - Probe result may include only status-relevant field names/text snippets, request method/path patterns with private identifiers replaced by `[submission-id]`, and candidate selectors/JSON keys.
 
@@ -537,7 +572,7 @@ git commit -m "feat: add safe status sync engine"
 The redaction function must replace:
 
 ```ts
-/submission-details\/[^/?#\s]+/g
+/submission-details\/[^/?#\s]+/g;
 ```
 
 with:
@@ -586,12 +621,14 @@ git commit -m "test: capture redacted Springer status fixture"
 ### Task 7: Session manager and production Springer Nature adapter
 
 **Files:**
+
 - Create: `src/modules/statusSync/sessionManager.ts`
 - Create: `src/modules/statusSync/springerNatureAdapter.ts`
 - Modify: `scripts/springerNatureAdapter.test.mjs`
 - Modify: `src/modules/statusPage.ts` only if the same authenticated browser/context must be reused for reconnect.
 
 **Interfaces:**
+
 - Consumes the observed fixture from Task 6.
 - Produces:
   - `class SessionManager`
@@ -651,6 +688,7 @@ git commit -m "feat: sync Springer Nature submission status"
 ### Task 8: Runtime wiring, startup scheduler and dashboard-triggered sync
 
 **Files:**
+
 - Create: `src/modules/statusSync/runtime.ts`
 - Modify: `src/hooks.ts`
 - Modify: `src/modules/dashboard.ts`
@@ -658,6 +696,7 @@ git commit -m "feat: sync Springer Nature submission status"
 - Test: `scripts/statusSyncUiContract.test.mjs`
 
 **Interfaces:**
+
 - Produces UI-safe runtime functions:
 
 ```ts
@@ -719,6 +758,7 @@ git commit -m "feat: run Springer sync while Zotero is open"
 ### Task 9: Add/edit detection, per-submission controls, Dashboard summary and bilingual UI
 
 **Files:**
+
 - Modify: `src/modules/dialog.ts`
 - Modify: `src/modules/dashboard.ts`
 - Modify: `addon/content/dialog.css`
@@ -728,6 +768,7 @@ git commit -m "feat: run Springer sync while Zotero is open"
 - Modify: `scripts/statusSyncUiContract.test.mjs`
 
 **Interfaces:**
+
 - Consumes `recognizeProvider`, runtime sync functions, sync state.
 - User actions: `Sync now`, `Sync all`, `Pause auto-sync`, `Resume auto-sync`, `Reconnect Springer Nature`, existing `Open submission system`.
 
@@ -804,6 +845,7 @@ git commit -m "feat: add Springer sync controls"
 ### Task 10: Global preference, generated preference typing, privacy guards and recovery behavior
 
 **Files:**
+
 - Modify: `addon/prefs.js`
 - Modify: `addon/content/preferences.xhtml`
 - Modify: `addon/locale/en-US/preferences.ftl`
@@ -815,6 +857,7 @@ git commit -m "feat: add Springer sync controls"
 - Test: `scripts/statusSyncEngine.test.mjs`
 
 **Interfaces:**
+
 - Adds preference key `sync.enabled: boolean`, default `true`.
 
 - [ ] **Step 1: Write failing preference and recovery tests**
@@ -871,10 +914,12 @@ git commit -m "feat: add auto-sync preference and recovery"
 ### Task 11: Runtime smoke test in Zotero and regression verification
 
 **Files:**
+
 - Modify only files proven necessary by runtime defects.
 - Do not bump `package.json` version.
 
 **Interfaces:**
+
 - Verifies the complete user flow against the approved design.
 
 - [ ] **Step 1: Build a development XPI/current dev bundle**
@@ -943,11 +988,13 @@ Use a focused commit message matching the actual defect, for example `fix: prese
 ### Task 12: Documentation and review-ready PR, without release
 
 **Files:**
+
 - Modify: `README.md`
 - Keep: `docs/superpowers/specs/2026-09-02-springer-nature-auto-sync-design.md`
 - Keep: `docs/superpowers/plans/2026-09-02-springer-nature-auto-sync.md`
 
 **Interfaces:**
+
 - No production API changes; prepares the feature for user review.
 
 - [ ] **Step 1: Update README as an unreleased feature only**
