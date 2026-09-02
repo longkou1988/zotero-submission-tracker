@@ -1,7 +1,10 @@
 import { config } from "../../package.json";
 import { db } from "../db";
 import { getString } from "../utils/locale";
-import { computeSubmissionAnalytics, type SubmissionAnalytics } from "./analytics";
+import {
+  computeSubmissionAnalytics,
+  type SubmissionAnalytics,
+} from "./analytics";
 import { html } from "./ui";
 
 const TAB_ID = `${config.addonRef}-analytics-dashboard`;
@@ -101,7 +104,7 @@ async function refresh(): Promise<void> {
     rootEl.lastElementChild?.remove();
   }
 
-  const doc = rootEl.ownerDocument;
+  const doc = rootEl.ownerDocument as Document;
   if (!analytics.total) {
     const empty = html(doc, "div", "st-dash-empty");
     empty.textContent = getString("analytics-empty");
@@ -220,7 +223,8 @@ function buildJournalPanel(
 
   const table = html(doc, "div");
   table.style.display = "grid";
-  table.style.gridTemplateColumns = "minmax(220px, 1fr) 90px 80px 80px 150px";
+  table.style.gridTemplateColumns =
+    "minmax(220px, 1fr) 90px 80px 80px 150px";
   table.style.minWidth = "720px";
   table.style.alignItems = "center";
 
@@ -257,7 +261,8 @@ function buildPanel(doc: Document, titleText: string): HTMLElement {
     "1px solid color-mix(in srgb, currentColor 10%, transparent)";
   panel.style.borderRadius = "10px";
   panel.style.padding = "14px";
-  panel.style.background = "color-mix(in srgb, currentColor 2%, transparent)";
+  panel.style.background =
+    "color-mix(in srgb, currentColor 2%, transparent)";
 
   const title = html(doc, "h2");
   title.textContent = titleText;
@@ -290,7 +295,8 @@ function buildBarRow(
   track.style.height = "8px";
   track.style.borderRadius = "999px";
   track.style.overflow = "hidden";
-  track.style.background = "color-mix(in srgb, currentColor 9%, transparent)";
+  track.style.background =
+    "color-mix(in srgb, currentColor 9%, transparent)";
 
   const fill = html(doc, "div");
   fill.style.height = "100%";
