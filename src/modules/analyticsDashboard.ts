@@ -3,11 +3,21 @@ import { db } from "../db";
 import { getString } from "../utils/locale";
 import {
   computeSubmissionAnalytics,
+  getJournalBarWidths,
+  getOutcomeChartSegments,
+  type OutcomeChartKey,
   type SubmissionAnalytics,
 } from "./analytics";
 import { html } from "./ui";
 
 const TAB_ID = `${config.addonRef}-analytics-dashboard`;
+const SVG_NS = "http://www.w3.org/2000/svg";
+const OUTCOME_COLORS: Record<OutcomeChartKey, string> = {
+  active: "#3b82f6",
+  accepted: "#22c55e",
+  rejected: "#ef4444",
+  withdrawn: "#6b7280",
+};
 
 let opened = false;
 let unsubscribe: (() => void) | null = null;
@@ -116,7 +126,7 @@ async function refresh(): Promise<void> {
 
   const grid = html(doc, "div");
   grid.style.display = "grid";
-  grid.style.gridTemplateColumns = "repeat(auto-fit, minmax(320px, 1fr))";
+  grid.style.gridTemplateColumns = "repeat(auto-fit, minmax(340px, 1fr))";
   grid.style.gap = "12px";
   grid.append(
     buildOutcomePanel(doc, analytics),
@@ -180,17 +190,191 @@ function buildOutcomePanel(
   analytics: SubmissionAnalytics,
 ): HTMLElement {
   const panel = buildPanel(doc, getString("analytics-outcome-title"));
-  const values: Array<[string, number]> = [
-    [getString("analytics-active"), analytics.active],
-    [getString("analytics-accepted"), analytics.accepted],
-    [getString("analytics-rejected"), analytics.rejected],
-    [getString("analytics-withdrawn"), analytics.withdrawn],
-  ];
-  const max = Math.max(1, ...values.map(([, value]) => value));
-  for (const [label, value] of values) {
-    panel.appendChild(buildBarRow(doc, label, value, max));
-  }
+  const segments = getOutcomeChartSegments(analytics);
+
+  const content = html(doc, "div");
+  content.style.display = "grid";
+  content.style.gridTemplateColumns = "minmax(170px, 0.8fr) minmax(170px, 1.2fr)";
+  content.style.gap = "16px";
+  content.style.alignItems = "center";
+  content.append(
+    buildDonutChart(doc, analytics.total, segments),
+    buildOutcomeLegend(doc, segments),
+  );
+  panel.appendChild(content);
+
+  const decisionRates = buildDecisionRateBar(doc, analytics);
+  if (decisionRates) panel.appendChild(decisionRates);
   return panel;
+}
+
+function buildDonutChart(
+  doc: Document,
+  total: number,
+  segments: ReturnType<typeof getOutcomeChartSegments>,
+): HTMLElement {
+  const wrap = html(doc, "div");
+  wrap.style.display = "flex";
+  wrap.style.justifyContent = "center";
+  wrap.style.alignItems = "center";
+  wrap.style.minHeight = "190px";
+
+  const svg = doc.createElementNS(SVG_NS, "svg");
+  svg.setAttribute("viewBox", "0 0 120 120");
+  svg.setAttribute("width", "190");
+  svg.setAttribute("height", "190");
+  svg.setAttribute("role", "img");
+  svg.setAttribute("aria-label", getString("analytics-outcome-title"));
+  svg.style.maxWidth = "100%";
+
+  const track = doc.createElementNS(SVG_NS, "circle");
+  track.setAttribute("cx", "60");
+  track.setAttribute("cy", "60");
+  track.setAttribute("r", "44");
+  track.setAttribute("fill", "none");
+  track.setAttribute("stroke", "currentColor");
+  track.setAttribute("stroke-width", "16");
+  track.setAttribute("opacity", "0.08");
+  svg.appendChild(track);
+
+  for (const segment of segments) {
+    if (!segment.count || !segment.percent) continue;
+    const circle = doc.createElementNS(SVG_NS, "circle");
+    circle.setAttribute("cx", "60");
+    circle.setAttribute("cy", "60");
+    circle.setAttribute("r", "44");
+    circle.setAttribute("fill", "none");
+    circle.setAttribute("pathLength", "100");
+    circle.setAttribute("stroke", OUTCOME_COLORS[segment.key]);
+    circle.setAttribute("stroke-width", "16");
+    circle.setAttribute(
+      "stroke-dasharray",
+      `${segment.percent} ${Math.max(0, 100 - segment.percent)}`,
+    );
+    circle.setAttribute("stroke-dashoffset", String(-segment.startPercent));
+    circle.setAttribute("transform", "rotate(-90 60 60)");
+
+    const title = doc.createElementNS(SVG_NS, "title");
+    title.textContent = `${getOutcomeLabel(segment.key)}: ${segment.count} (${formatChartPercent(segment.percent)})`;
+    circle.appendChild(title);
+    svg.appendChild(circle);
+  }
+
+  const totalText = doc.createElementNS(SVG_NS, "text");
+  totalText.setAttribute("x", "60");
+  totalText.setAttribute("y", "58");
+  totalText.setAttribute("text-anchor", "middle");
+  totalText.setAttribute("fill", "currentColor");
+  totalText.setAttribute("font-size", "23");
+  totalText.setAttribute("font-weight", "700");
+  totalText.textContent = String(total);
+  svg.appendChild(totalText);
+
+  const totalLabel = doc.createElementNS(SVG_NS, "text");
+  totalLabel.setAttribute("x", "60");
+  totalLabel.setAttribute("y", "75");
+  totalLabel.setAttribute("text-anchor", "middle");
+  totalLabel.setAttribute("fill", "currentColor");
+  totalLabel.setAttribute("font-size", "9");
+  totalLabel.setAttribute("opacity", "0.58");
+  totalLabel.textContent = getString("analytics-total");
+  svg.appendChild(totalLabel);
+
+  wrap.appendChild(svg);
+  return wrap;
+}
+
+function buildOutcomeLegend(
+  doc: Document,
+  segments: ReturnType<typeof getOutcomeChartSegments>,
+): HTMLElement {
+  const legend = html(doc, "div");
+  legend.style.display = "flex";
+  legend.style.flexDirection = "column";
+  legend.style.gap = "7px";
+
+  for (const segment of segments) {
+    const row = html(doc, "div");
+    row.style.display = "grid";
+    row.style.gridTemplateColumns = "12px minmax(82px, 1fr) 44px 56px";
+    row.style.alignItems = "center";
+    row.style.gap = "7px";
+    row.style.padding = "5px 0";
+
+    const dot = html(doc, "span");
+    dot.style.width = "9px";
+    dot.style.height = "9px";
+    dot.style.borderRadius = "50%";
+    dot.style.background = OUTCOME_COLORS[segment.key];
+
+    const label = html(doc, "span");
+    label.textContent = getOutcomeLabel(segment.key);
+    label.style.fontSize = "12px";
+
+    const count = html(doc, "span");
+    count.textContent = String(segment.count);
+    count.style.textAlign = "right";
+    count.style.fontWeight = "650";
+    count.style.fontVariantNumeric = "tabular-nums";
+
+    const percent = html(doc, "span");
+    percent.textContent = formatChartPercent(segment.percent);
+    percent.style.textAlign = "right";
+    percent.style.fontSize = "11.5px";
+    percent.style.opacity = "0.58";
+    percent.style.fontVariantNumeric = "tabular-nums";
+
+    row.append(dot, label, count, percent);
+    legend.appendChild(row);
+  }
+  return legend;
+}
+
+function buildDecisionRateBar(
+  doc: Document,
+  analytics: SubmissionAnalytics,
+): HTMLElement | null {
+  if (analytics.acceptanceRate == null || analytics.rejectionRate == null) {
+    return null;
+  }
+
+  const wrap = html(doc, "div");
+  wrap.style.marginTop = "14px";
+  wrap.style.paddingTop = "12px";
+  wrap.style.borderTop =
+    "1px solid color-mix(in srgb, currentColor 8%, transparent)";
+
+  const labels = html(doc, "div");
+  labels.style.display = "flex";
+  labels.style.justifyContent = "space-between";
+  labels.style.gap = "12px";
+  labels.style.fontSize = "11.5px";
+  labels.style.marginBottom = "6px";
+
+  const acceptedLabel = html(doc, "span");
+  acceptedLabel.textContent = `${getString("analytics-acceptance-rate")} ${formatPercent(analytics.acceptanceRate)}`;
+  const rejectedLabel = html(doc, "span");
+  rejectedLabel.textContent = `${getString("analytics-rejection-rate")} ${formatPercent(analytics.rejectionRate)}`;
+  labels.append(acceptedLabel, rejectedLabel);
+
+  const track = html(doc, "div");
+  track.style.display = "flex";
+  track.style.height = "10px";
+  track.style.borderRadius = "999px";
+  track.style.overflow = "hidden";
+  track.style.background = "color-mix(in srgb, currentColor 8%, transparent)";
+  track.title = getString("analytics-rate-hint");
+
+  const accepted = html(doc, "div");
+  accepted.style.width = `${analytics.acceptanceRate}%`;
+  accepted.style.background = OUTCOME_COLORS.accepted;
+  const rejected = html(doc, "div");
+  rejected.style.width = `${analytics.rejectionRate}%`;
+  rejected.style.background = OUTCOME_COLORS.rejected;
+  track.append(accepted, rejected);
+
+  wrap.append(labels, track);
+  return wrap;
 }
 
 function buildYearlyPanel(
@@ -202,10 +386,60 @@ function buildYearlyPanel(
     panel.appendChild(buildNoData(doc));
     return panel;
   }
+
+  const chart = html(doc, "div");
+  chart.style.display = "flex";
+  chart.style.alignItems = "stretch";
+  chart.style.gap = "10px";
+  chart.style.height = "210px";
+  chart.style.overflowX = "auto";
+  chart.style.padding = "6px 4px 0";
+
   const max = Math.max(1, ...analytics.yearlyTrend.map((item) => item.count));
   for (const item of analytics.yearlyTrend) {
-    panel.appendChild(buildBarRow(doc, String(item.year), item.count, max));
+    const column = html(doc, "div");
+    column.style.display = "grid";
+    column.style.gridTemplateRows = "22px minmax(120px, 1fr) 24px";
+    column.style.alignItems = "end";
+    column.style.justifyItems = "center";
+    column.style.minWidth = "52px";
+    column.style.flex = "1 0 52px";
+
+    const value = html(doc, "div");
+    value.textContent = String(item.count);
+    value.style.fontSize = "11.5px";
+    value.style.fontWeight = "650";
+    value.style.fontVariantNumeric = "tabular-nums";
+
+    const barArea = html(doc, "div");
+    barArea.style.width = "100%";
+    barArea.style.height = "100%";
+    barArea.style.display = "flex";
+    barArea.style.alignItems = "flex-end";
+    barArea.style.justifyContent = "center";
+    barArea.style.borderBottom =
+      "1px solid color-mix(in srgb, currentColor 10%, transparent)";
+
+    const bar = html(doc, "div");
+    bar.style.width = "32px";
+    bar.style.maxWidth = "72%";
+    bar.style.height = `${Math.max(6, (item.count / max) * 100)}%`;
+    bar.style.borderRadius = "7px 7px 2px 2px";
+    bar.style.background = "var(--st-accent, #3b82f6)";
+    bar.style.opacity = "0.88";
+    bar.title = `${item.year}: ${item.count}`;
+    barArea.appendChild(bar);
+
+    const year = html(doc, "div");
+    year.textContent = String(item.year);
+    year.style.fontSize = "11px";
+    year.style.opacity = "0.62";
+
+    column.append(value, barArea, year);
+    chart.appendChild(column);
   }
+
+  panel.appendChild(chart);
   return panel;
 }
 
@@ -220,6 +454,8 @@ function buildJournalPanel(
     panel.appendChild(buildNoData(doc));
     return panel;
   }
+
+  panel.appendChild(buildJournalBars(doc, analytics));
 
   const table = html(doc, "div");
   table.style.display = "grid";
@@ -254,6 +490,64 @@ function buildJournalPanel(
   return panel;
 }
 
+function buildJournalBars(
+  doc: Document,
+  analytics: SubmissionAnalytics,
+): HTMLElement {
+  const journals = analytics.journals.slice(0, 8);
+  const widths = getJournalBarWidths(journals);
+  const chart = html(doc, "div");
+  chart.style.display = "flex";
+  chart.style.flexDirection = "column";
+  chart.style.gap = "7px";
+  chart.style.marginBottom = "16px";
+  chart.style.paddingBottom = "14px";
+  chart.style.borderBottom =
+    "1px solid color-mix(in srgb, currentColor 8%, transparent)";
+
+  journals.forEach((journal, index) => {
+    const row = html(doc, "div");
+    row.style.display = "grid";
+    row.style.gridTemplateColumns = "minmax(150px, 240px) minmax(150px, 1fr) 52px";
+    row.style.alignItems = "center";
+    row.style.gap = "9px";
+
+    const label = html(doc, "div");
+    label.textContent = journal.journal;
+    label.title = journal.journal;
+    label.style.fontSize = "11.5px";
+    label.style.whiteSpace = "nowrap";
+    label.style.overflow = "hidden";
+    label.style.textOverflow = "ellipsis";
+
+    const track = html(doc, "div");
+    track.style.height = "9px";
+    track.style.borderRadius = "999px";
+    track.style.overflow = "hidden";
+    track.style.background =
+      "color-mix(in srgb, currentColor 8%, transparent)";
+
+    const fill = html(doc, "div");
+    fill.style.width = `${Math.max(3, widths[index] || 0)}%`;
+    fill.style.height = "100%";
+    fill.style.borderRadius = "999px";
+    fill.style.background = "var(--st-accent, #3b82f6)";
+    fill.style.opacity = "0.82";
+    track.appendChild(fill);
+
+    const count = html(doc, "div");
+    count.textContent = String(journal.submissions);
+    count.style.textAlign = "right";
+    count.style.fontWeight = "650";
+    count.style.fontVariantNumeric = "tabular-nums";
+
+    row.append(label, track, count);
+    chart.appendChild(row);
+  });
+
+  return chart;
+}
+
 function buildPanel(doc: Document, titleText: string): HTMLElement {
   const panel = html(doc, "section");
   panel.style.border =
@@ -269,47 +563,6 @@ function buildPanel(doc: Document, titleText: string): HTMLElement {
   title.style.fontWeight = "650";
   panel.appendChild(title);
   return panel;
-}
-
-function buildBarRow(
-  doc: Document,
-  label: string,
-  value: number,
-  max: number,
-): HTMLElement {
-  const row = html(doc, "div");
-  row.style.display = "grid";
-  row.style.gridTemplateColumns = "92px minmax(100px, 1fr) 42px";
-  row.style.alignItems = "center";
-  row.style.gap = "8px";
-  row.style.margin = "8px 0";
-
-  const labelEl = html(doc, "div");
-  labelEl.textContent = label;
-  labelEl.style.fontSize = "11.5px";
-  labelEl.style.opacity = "0.72";
-
-  const track = html(doc, "div");
-  track.style.height = "8px";
-  track.style.borderRadius = "999px";
-  track.style.overflow = "hidden";
-  track.style.background = "color-mix(in srgb, currentColor 9%, transparent)";
-
-  const fill = html(doc, "div");
-  fill.style.height = "100%";
-  fill.style.width = `${Math.max(value ? 3 : 0, (value / max) * 100)}%`;
-  fill.style.borderRadius = "999px";
-  fill.style.background = "var(--st-accent, #3b82f6)";
-  track.appendChild(fill);
-
-  const count = html(doc, "div");
-  count.textContent = String(value);
-  count.style.fontVariantNumeric = "tabular-nums";
-  count.style.textAlign = "right";
-  count.style.fontWeight = "600";
-
-  row.append(labelEl, track, count);
-  return row;
 }
 
 function appendTableRow(
@@ -348,8 +601,25 @@ function buildNoData(doc: Document): HTMLElement {
   return empty;
 }
 
+function getOutcomeLabel(key: OutcomeChartKey): string {
+  switch (key) {
+    case "active":
+      return getString("analytics-active");
+    case "accepted":
+      return getString("analytics-accepted");
+    case "rejected":
+      return getString("analytics-rejected");
+    case "withdrawn":
+      return getString("analytics-withdrawn");
+  }
+}
+
 function formatPercent(value: number | null): string {
   return value == null ? "—" : `${value}%`;
+}
+
+function formatChartPercent(value: number): string {
+  return `${Number.isInteger(value) ? value : value.toFixed(1)}%`;
 }
 
 function formatDays(value: number | null): string {
