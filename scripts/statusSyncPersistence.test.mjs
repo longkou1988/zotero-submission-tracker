@@ -7,6 +7,10 @@ const source = readFileSync(
   new URL("../src/modules/statusSync/syncStore.ts", import.meta.url),
   "utf8",
 );
+const hooks = readFileSync(
+  new URL("../src/hooks.ts", import.meta.url),
+  "utf8",
+);
 
 test("sync persistence uses additive idempotent tables", () => {
   assert.match(source, /submissiontrackerSyncState/);
@@ -48,4 +52,15 @@ test("sync history stores only provider observation metadata", () => {
   ]) {
     assert.match(source, new RegExp(`\\b${field}\\b`));
   }
+});
+
+test("startup initializes sync persistence after the canonical database", () => {
+  assert.match(
+    hooks,
+    /import\s*\{\s*syncStore\s*\}\s*from\s*["']\.\/modules\/statusSync\/syncStore["']/,
+  );
+  const canonicalInit = hooks.indexOf("await db.initialize();");
+  const syncInit = hooks.indexOf("await syncStore.initialize();");
+  assert.ok(canonicalInit >= 0, "canonical database initialization must exist");
+  assert.ok(syncInit > canonicalInit, "sync store must initialize after canonical DB");
 });
