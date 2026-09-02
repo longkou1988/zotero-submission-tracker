@@ -11,6 +11,7 @@ declare namespace _ZoteroTypes {
       "mirror.extraField": boolean;
       "reminder.autoDays": number;
       "reminder.remindedMap": string;
+      "collection.lastTarget": string;
     };
   }
 }

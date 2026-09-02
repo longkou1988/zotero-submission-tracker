@@ -1,8 +1,9 @@
 import { config } from "../../package.json";
 import { db } from "../db";
 import { getString } from "../utils/locale";
-import { openCreateDialog } from "./dialog";
+import { openAnalyticsDashboard } from "./analyticsDashboard";
 import { openDashboard } from "./dashboard";
+import { openCreateDialog } from "./dialog";
 import { openInquiryIfRecommended, showNextAction } from "./smartActions";
 
 export function registerMenus(): void {
@@ -34,6 +35,11 @@ export function registerMenus(): void {
         label: getString("menu-dashboard"),
         commandListener: () => openDashboard(),
       },
+      {
+        tag: "menuitem",
+        label: getString("menu-analytics-dashboard"),
+        commandListener: () => openAnalyticsDashboard(),
+      },
     ],
   });
 
@@ -46,6 +52,12 @@ export function registerMenus(): void {
     id: `${config.addonRef}-tools-dashboard`,
     label: getString("menu-dashboard"),
     commandListener: () => openDashboard(),
+  });
+  ztoolkit.Menu.register("menuTools", {
+    tag: "menuitem",
+    id: `${config.addonRef}-tools-analytics-dashboard`,
+    label: getString("menu-analytics-dashboard"),
+    commandListener: () => openAnalyticsDashboard(),
   });
 }
 

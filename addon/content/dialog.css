@@ -328,3 +328,91 @@
   opacity: 1;
   border-color: color-mix(in srgb, var(--st-danger) 45%, transparent);
 }
+
+/* Collection picker. Rendered in-document because native <select> popups are
+   broken in toolkit dialog windows. */
+.st-collectionpicker {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.st-collectionpicker-trigger {
+  appearance: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
+  border: 1px solid color-mix(in srgb, currentColor 22%, transparent);
+  border-radius: 6px;
+  padding: 6px 9px;
+  background: color-mix(in srgb, currentColor 4%, transparent);
+  color: inherit;
+  font: inherit;
+  font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.st-collectionpicker-trigger:focus {
+  border-color: var(--st-accent);
+  outline: none;
+}
+
+.st-collectionpicker-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.st-collectionpicker-chevron {
+  flex: none;
+  opacity: 0.55;
+}
+
+.st-collectionpicker-menu {
+  margin-top: 5px;
+  max-height: 220px;
+  overflow-y: auto;
+  border: 1px solid color-mix(in srgb, currentColor 20%, transparent);
+  border-radius: 6px;
+  padding: 4px;
+  background: Canvas;
+  color: CanvasText;
+  box-shadow: 0 5px 16px color-mix(in srgb, #000 18%, transparent);
+}
+
+.st-collectionpicker-menu[hidden] {
+  display: none;
+}
+
+.st-collectionpicker-option {
+  appearance: none;
+  display: block;
+  width: 100%;
+  border: 0;
+  border-radius: 4px;
+  padding: 6px 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.st-collectionpicker-option:hover {
+  background: color-mix(in srgb, currentColor 8%, transparent);
+}
+
+.st-collectionpicker-option--selected {
+  background: color-mix(in srgb, var(--st-accent) 14%, transparent);
+  color: var(--st-accent);
+  font-weight: 600;
+}
