@@ -13,7 +13,7 @@ export interface StatusProviderAdapter {
   provider: ProviderKind;
   supports(url: string): boolean;
   fetchSnapshot(submission: SubmissionRecord): Promise<ProviderSnapshot>;
-  normalize(rawStatus: string): NormalizationResult;
+  normalize(snapshot: ProviderSnapshot): NormalizationResult;
 }
 
 export interface SyncStoreLike {
@@ -203,7 +203,7 @@ export class StatusSyncEngine {
       });
     }
 
-    const normalization = adapter.normalize(snapshot.rawStatus);
+    const normalization = adapter.normalize(snapshot);
     if (!normalization.canonicalStatus) {
       await this.deps.store.recordSuccess(submissionId, provider, {
         snapshot,
