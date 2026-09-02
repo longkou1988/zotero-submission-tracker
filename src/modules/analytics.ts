@@ -1,8 +1,4 @@
-import type {
-  StatusEvent,
-  SubmissionRecord,
-  SubmissionStatus,
-} from "../types";
+import type { StatusEvent, SubmissionRecord, SubmissionStatus } from "../types";
 
 export interface AnalyticsSubmission {
   record: SubmissionRecord;
