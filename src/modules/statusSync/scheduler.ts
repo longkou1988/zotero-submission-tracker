@@ -2,21 +2,21 @@ import { STARTUP_DELAY_MS, SYNC_INTERVAL_MS } from "./schedule";
 
 export interface SchedulerDeps {
   listEligibleSubmissionIds(): Promise<number[]>;
-  syncOne(
-    submissionId: number,
-    options?: { force?: boolean },
-  ): Promise<void>;
+  syncOne(submissionId: number, options?: { force?: boolean }): Promise<void>;
   setTimeout(callback: () => void, ms: number): number;
   clearTimeout(id: number): void;
 }
 
 export class StatusSyncScheduler {
+  private readonly deps: SchedulerDeps;
   private startupTimer: number | null = null;
   private regularTimer: number | null = null;
   private running: Promise<void> | null = null;
   private stopped = true;
 
-  constructor(private readonly deps: SchedulerDeps) {}
+  constructor(deps: SchedulerDeps) {
+    this.deps = deps;
+  }
 
   start(): void {
     if (!this.stopped) {
