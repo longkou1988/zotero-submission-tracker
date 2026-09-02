@@ -100,7 +100,7 @@ SubmissionDB + SyncDB
 Responsibilities:
 
 - start after Zotero startup;
-- delay the first background attempt by roughly 30-60 seconds;
+- wait 45 seconds before the first background due-check;
 - run due checks on a six-hour cadence;
 - support `syncIfDue()` for dashboard openings;
 - apply a ten-minute freshness guard to dashboard-triggered checks;
@@ -199,7 +199,7 @@ When the provider indicates an expired or unauthenticated session:
 - show an in-plugin "Springer Nature requires sign-in" state;
 - open the sign-in/browser UI only when the user explicitly clicks reconnect.
 
-After successful sign-in, a manual or immediate sync may run.
+While `authState = "reauth_required"`, automatic scheduler and dashboard-triggered runs skip that provider record. Only explicit reconnect/sign-in clears the block and permits a new sync attempt. Manual "Sync now" may report the auth-required state but must not open a login window by itself.
 
 ## Springer Probe Requirement
 
@@ -385,21 +385,25 @@ Springer Nature records are auto-enabled when their valid provider URL is saved.
 
 ### Startup
 
-After plugin startup, wait approximately 30-60 seconds, then evaluate due records.
+After plugin startup, wait 45 seconds, then evaluate due records.
 
 ### Regular checks
 
-A record is normally due when its last successful/attempted schedule time is at least six hours old, subject to error/backoff policy.
+For a record that has never been attempted, the record is due immediately after the startup delay. Otherwise, regular automatic sync is due when `now - lastAttemptAt >= 6 hours`.
+
+A failed transient attempt therefore does not cause an immediate retry loop. It is retried on the next six-hour due window unless the user explicitly invokes "Sync now".
+
+Records in `reauth_required` are not automatically retried until reconnect succeeds.
 
 ### Dashboard-triggered checks
 
-Opening either the Submission Dashboard or Submission Analytics invokes `syncIfDue()`.
+Opening either the Submission Dashboard or Submission Analytics invokes `syncIfDue()` asynchronously after local UI rendering begins.
 
-A ten-minute freshness guard prevents redundant requests immediately after a recent successful sync.
+Dashboard freshness is based on `lastAttemptAt`: if a provider record was attempted within the previous ten minutes, dashboard opening does not retry it, regardless of success/failure. A record older than ten minutes is still only synced when it is otherwise due under the six-hour rule; the dashboard trigger is not a six-hour bypass.
 
 ### Manual sync
 
-"Sync now" bypasses the ten-minute freshness guard and six-hour due calculation, but still respects a single-flight lock so duplicate concurrent runs cannot occur.
+"Sync now" bypasses the ten-minute freshness guard and six-hour due calculation, but still respects the single-flight lock and authentication safety rules. It never launches a login window automatically.
 
 ### Multiple records
 
@@ -423,7 +427,7 @@ Error rules:
 
 - never modify canonical status on an error;
 - retain the previous successful raw/canonical sync state;
-- update attempt/error metadata;
+- update `lastAttemptAt` and error metadata;
 - append history only when an error condition meaningfully changes;
 - record recovery when a previously persistent error clears;
 - avoid logging private full URLs or credentials.
@@ -522,7 +526,8 @@ Required automated coverage includes:
 17. Duplicate polling does not duplicate status events.
 18. v0.6.1 database migration is additive/idempotent.
 19. Global disable prevents scheduler requests.
-20. Provider parser fixtures reproduce observed Springer status structures.
+20. `reauth_required` suppresses automatic retries until reconnect.
+21. Provider parser fixtures reproduce observed Springer status structures.
 
 The provider parser should be tested against redacted fixtures captured from the Springer probe, not against guessed HTML.
 
