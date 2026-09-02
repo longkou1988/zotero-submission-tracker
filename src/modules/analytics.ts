@@ -5,6 +5,10 @@ export interface AnalyticsSubmission {
   events: StatusEvent[];
 }
 
+export interface SubmissionItemState {
+  deleted?: boolean;
+}
+
 export interface YearlySubmissionCount {
   year: number;
   count: number;
@@ -57,6 +61,19 @@ const FIRST_DECISION_STATUSES = new Set<SubmissionStatus>([
   "accepted",
   "rejected",
 ]);
+
+export function filterVisibleSubmissionRecords(
+  records: SubmissionRecord[],
+  resolveItem: (
+    libraryID: number,
+    itemKey: string,
+  ) => SubmissionItemState | undefined,
+): SubmissionRecord[] {
+  return records.filter((record) => {
+    const item = resolveItem(record.libraryID, record.itemKey);
+    return !!item && !item.deleted;
+  });
+}
 
 export function computeSubmissionAnalytics(
   submissions: AnalyticsSubmission[],
