@@ -1,0 +1,201 @@
+name: Interactive analytics temp
+on:
+  push:
+    branches: [feature/v0.6.0-analytics-dashboard]
+    paths: [.github/workflows/interactive-analytics-temp.yml]
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup JS
+        uses: zotero-plugin-dev/workflows/setup-js@main
+      - name: Patch interactive dashboard
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('src/modules/analyticsDashboard.ts')
+          t=p.read_text()
+          t=t.replace('import { db } from "../db";\n', 'import { db } from "../db";\nimport { STATUS_LIST } from "../types";\n',1)
+          t=t.replace('  computeSubmissionAnalytics,\n  filterVisibleSubmissionRecords,', '  computeSubmissionAnalytics,\n  filterAnalyticsSubmissions,\n  filterVisibleSubmissionRecords,\n  getSubmissionYear,',1)
+          t=t.replace('  type OutcomeChartKey,\n  type SubmissionAnalytics,', '  type AnalyticsFilter,\n  type AnalyticsSubmission,\n  type OutcomeChartKey,\n  type SubmissionAnalytics,',1)
+          t=t.replace('import { html } from "./ui";', 'import { openDetailDialog } from "./dialog";\nimport { getItemTitle, html, statusBadge, statusLabel } from "./ui";',1)
+          t=t.replace('let refreshTimer: number | null = null;\n', 'let refreshTimer: number | null = null;\nlet allSubmissions: AnalyticsSubmission[] = [];\nconst filterState: AnalyticsFilter = { year: null, status: null, journal: null, outcome: null };\n',1)
+          old='''  const submissions = await Promise.all(\n    records.map(async (record) => ({\n      record,\n      events: await db.getEvents(record.id),\n    })),\n  );\n  const analytics = computeSubmissionAnalytics(submissions);\n\n  while (rootEl.children.length > 1) {\n    rootEl.lastElementChild?.remove();\n  }\n\n  const doc = rootEl.ownerDocument as Document;\n  if (!analytics.total) {\n    const empty = html(doc, "div", "st-dash-empty");\n    empty.textContent = getString("analytics-empty");\n    rootEl.appendChild(empty);\n    return;\n  }\n\n  rootEl.appendChild(buildKpis(doc, analytics));'''
+          new='''  allSubmissions = await Promise.all(\n    records.map(async (record) => ({\n      record,\n      events: await db.getEvents(record.id),\n    })),\n  );\n  const filteredSubmissions = filterAnalyticsSubmissions(allSubmissions, filterState);\n  const analytics = computeSubmissionAnalytics(filteredSubmissions);\n\n  while (rootEl.children.length > 1) {\n    rootEl.lastElementChild?.remove();\n  }\n\n  const doc = rootEl.ownerDocument as Document;\n  rootEl.appendChild(buildFilterBar(doc));\n  if (!allSubmissions.length) {\n    const empty = html(doc, "div", "st-dash-empty");\n    empty.textContent = getString("analytics-empty");\n    rootEl.appendChild(empty);\n    return;\n  }\n  if (!analytics.total) {\n    const empty = html(doc, "div", "st-dash-empty");\n    empty.textContent = getString("analytics-filter-empty");\n    rootEl.appendChild(empty);\n    return;\n  }\n\n  rootEl.appendChild(buildKpis(doc, analytics));'''
+          if old not in t: raise SystemExit('refresh block not found')
+          t=t.replace(old,new,1)
+          t=t.replace('  rootEl.appendChild(buildJournalPanel(doc, analytics));\n}', '  rootEl.appendChild(buildJournalPanel(doc, analytics));\n  rootEl.appendChild(buildSubmissionList(doc, filteredSubmissions));\n}',1)
+          marker='function buildKpis(doc: Document, analytics: SubmissionAnalytics): HTMLElement {'
+          helpers=r'''function buildFilterBar(doc: Document): HTMLElement {
+  const bar = html(doc, "div", "st-dash-toolbar");
+  bar.style.display = "flex";
+  bar.style.flexWrap = "wrap";
+  bar.style.gap = "8px";
+  bar.style.alignItems = "center";
+
+  const makeSelect = (labelText: string) => {
+    const wrap = html(doc, "label");
+    wrap.style.display = "flex";
+    wrap.style.alignItems = "center";
+    wrap.style.gap = "5px";
+    wrap.style.fontSize = "11.5px";
+    const label = html(doc, "span");
+    label.textContent = labelText;
+    const select = html(doc, "select", "st-input") as HTMLSelectElement;
+    select.style.width = "auto";
+    select.style.minWidth = "120px";
+    wrap.append(label, select);
+    return { wrap, select };
+  };
+
+  const years = Array.from(new Set(allSubmissions.map((item) => getSubmissionYear(item.record, item.events)))).sort((a, b) => b - a);
+  const year = makeSelect(getString("analytics-filter-year"));
+  addOption(doc, year.select, "", getString("analytics-filter-all"));
+  for (const value of years) addOption(doc, year.select, String(value), String(value));
+  year.select.value = filterState.year == null ? "" : String(filterState.year);
+  year.select.addEventListener("change", () => {
+    filterState.year = year.select.value ? Number(year.select.value) : null;
+    void refresh();
+  });
+
+  const status = makeSelect(getString("analytics-filter-status"));
+  addOption(doc, status.select, "", getString("analytics-filter-all"));
+  for (const value of STATUS_LIST) addOption(doc, status.select, value, statusLabel(value));
+  status.select.value = filterState.status || "";
+  status.select.addEventListener("change", () => {
+    filterState.status = (status.select.value || null) as AnalyticsFilter["status"];
+    filterState.outcome = null;
+    void refresh();
+  });
+
+  const journals = Array.from(new Set(allSubmissions.map((item) => item.record.journal.trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b));
+  const journal = makeSelect(getString("analytics-filter-journal"));
+  addOption(doc, journal.select, "", getString("analytics-filter-all"));
+  for (const value of journals) addOption(doc, journal.select, value, value);
+  journal.select.value = filterState.journal || "";
+  journal.select.addEventListener("change", () => {
+    filterState.journal = journal.select.value || null;
+    void refresh();
+  });
+
+  const reset = html(doc, "button", "st-btn") as HTMLButtonElement;
+  reset.textContent = getString("analytics-filter-reset");
+  reset.addEventListener("click", () => {
+    filterState.year = null;
+    filterState.status = null;
+    filterState.journal = null;
+    filterState.outcome = null;
+    void refresh();
+  });
+  bar.append(year.wrap, status.wrap, journal.wrap, reset);
+
+  if (filterState.outcome) {
+    const chip = html(doc, "button", "st-chip st-chip--active") as HTMLButtonElement;
+    chip.textContent = `${getString("analytics-filter-outcome")}: ${getOutcomeLabel(filterState.outcome)} ×`;
+    chip.addEventListener("click", () => setOutcomeFilter(null));
+    bar.appendChild(chip);
+  }
+  return bar;
+}
+
+function addOption(doc: Document, select: HTMLSelectElement, value: string, label: string): void {
+  const option = doc.createElementNS("http://www.w3.org/1999/xhtml", "option") as HTMLOptionElement;
+  option.value = value;
+  option.textContent = label;
+  select.appendChild(option);
+}
+
+function setOutcomeFilter(outcome: OutcomeChartKey | null): void {
+  filterState.outcome = filterState.outcome === outcome ? null : outcome;
+  filterState.status = null;
+  void refresh();
+}
+
+function setYearFilter(year: number): void {
+  filterState.year = filterState.year === year ? null : year;
+  void refresh();
+}
+
+function setJournalFilter(journal: string): void {
+  filterState.journal = filterState.journal === journal ? null : journal;
+  void refresh();
+}
+
+function buildSubmissionList(doc: Document, submissions: AnalyticsSubmission[]): HTMLElement {
+  const panel = buildPanel(doc, getString("analytics-records-title", { args: { count: submissions.length } }));
+  for (const input of submissions) {
+    const row = html(doc, "div");
+    row.style.display = "grid";
+    row.style.gridTemplateColumns = "minmax(180px, 1.5fr) minmax(150px, 1fr) 130px 70px 86px";
+    row.style.alignItems = "center";
+    row.style.gap = "8px";
+    row.style.padding = "8px 6px";
+    row.style.borderBottom = "1px solid color-mix(in srgb, currentColor 8%, transparent)";
+
+    const title = html(doc, "div");
+    title.textContent = getItemTitle(input.record.libraryID, input.record.itemKey) || input.record.journal || "—";
+    title.style.overflow = "hidden";
+    title.style.textOverflow = "ellipsis";
+    title.style.whiteSpace = "nowrap";
+    const journal = html(doc, "button", "st-chip") as HTMLButtonElement;
+    journal.textContent = input.record.journal || "—";
+    journal.title = input.record.journal;
+    journal.addEventListener("click", () => setJournalFilter(input.record.journal));
+    const status = statusBadge(doc, input.record.currentStatus);
+    const year = html(doc, "button", "st-chip") as HTMLButtonElement;
+    const submissionYear = getSubmissionYear(input.record, input.events);
+    year.textContent = String(submissionYear);
+    year.addEventListener("click", () => setYearFilter(submissionYear));
+    const detail = html(doc, "button", "st-btn st-btn--sm") as HTMLButtonElement;
+    detail.textContent = getString("analytics-open-detail");
+    detail.addEventListener("click", () => openDetailDialog(input.record));
+    row.append(title, journal, status, year, detail);
+    panel.appendChild(row);
+  }
+  return panel;
+}
+
+'''
+          if marker not in t: raise SystemExit('buildKpis marker missing')
+          t=t.replace(marker,helpers+marker,1)
+          # KPI clicks
+          t=t.replace('''    card.style.cursor = "default";\n    if (hint) card.title = hint;''','''    const outcome = label === getString("analytics-active") ? "active" : label === getString("analytics-accepted") ? "accepted" : label === getString("analytics-rejected") ? "rejected" : null;\n    const clickable = outcome || label === getString("analytics-total");\n    card.style.cursor = clickable ? "pointer" : "default";\n    if (clickable) {\n      card.setAttribute("role", "button");\n      card.setAttribute("tabindex", "0");\n      const activate = () => setOutcomeFilter(outcome);\n      card.addEventListener("click", activate);\n      card.addEventListener("keydown", (event: KeyboardEvent) => {\n        if (event.key === "Enter" || event.key === " ") { event.preventDefault(); activate(); }\n      });\n    }\n    if (hint) card.title = hint;''',1)
+          # Donut click
+          t=t.replace('''    circle.setAttribute("transform", "rotate(-90 60 60)");\n\n    const title''','''    circle.setAttribute("transform", "rotate(-90 60 60)");\n    circle.setAttribute("style", "cursor: pointer;");\n    circle.addEventListener("click", () => setOutcomeFilter(segment.key));\n\n    const title''',1)
+          # Legend click
+          t=t.replace('''    row.style.padding = "5px 0";\n\n    const dot''','''    row.style.padding = "5px 0";\n    row.style.cursor = "pointer";\n    row.setAttribute("role", "button");\n    row.addEventListener("click", () => setOutcomeFilter(segment.key));\n\n    const dot''',1)
+          # Year click
+          t=t.replace('''    column.style.flex = "1 0 52px";\n\n    const value''','''    column.style.flex = "1 0 52px";\n    column.style.cursor = "pointer";\n    column.setAttribute("role", "button");\n    column.addEventListener("click", () => setYearFilter(item.year));\n\n    const value''',1)
+          # Journal bar row click
+          t=t.replace('''    row.style.gap = "9px";\n\n    const label''','''    row.style.gap = "9px";\n    row.style.cursor = "pointer";\n    row.setAttribute("role", "button");\n    row.addEventListener("click", () => setJournalFilter(journal.journal));\n\n    const label''',1)
+          # Journal table rows clickable
+          oldloop='''  for (const journal of analytics.journals) {\n    appendTableRow(doc, table, [\n      journal.journal,\n      String(journal.submissions),\n      String(journal.accepted),\n      String(journal.rejected),\n      formatDays(journal.averageFirstDecisionDays),\n    ]);\n  }'''
+          newloop='''  for (const journal of analytics.journals) {\n    const start = table.children.length;\n    appendTableRow(doc, table, [\n      journal.journal,\n      String(journal.submissions),\n      String(journal.accepted),\n      String(journal.rejected),\n      formatDays(journal.averageFirstDecisionDays),\n    ]);\n    for (let index = start; index < start + 5; index += 1) {\n      const cell = table.children[index] as HTMLElement | undefined;\n      if (cell) {\n        cell.style.cursor = "pointer";\n        cell.addEventListener("click", () => setJournalFilter(journal.journal));\n      }\n    }\n  }'''
+          if oldloop not in t: raise SystemExit('journal table loop not found')
+          t=t.replace(oldloop,newloop,1)
+          p.write_text(t)
+
+          # locale append
+          zh=Path('addon/locale/zh-CN/addon.ftl'); z=zh.read_text();
+          en=Path('addon/locale/en-US/addon.ftl'); e=en.read_text();
+          z += '''\nanalytics-filter-year = 年份\nanalytics-filter-status = 状态\nanalytics-filter-journal = 期刊\nanalytics-filter-all = 全部\nanalytics-filter-reset = 重置筛选\nanalytics-filter-outcome = 当前下钻\nanalytics-filter-empty = 当前筛选条件下没有投稿记录\nanalytics-records-title = 投稿记录（{ $count }）\nanalytics-open-detail = 详情\n'''
+          e += '''\nanalytics-filter-year = Year\nanalytics-filter-status = Status\nanalytics-filter-journal = Journal\nanalytics-filter-all = All\nanalytics-filter-reset = Reset filters\nanalytics-filter-outcome = Drill-down\nanalytics-filter-empty = No submissions match the current filters\nanalytics-records-title = Submission records ({ $count })\nanalytics-open-detail = Details\n'''
+          zh.write_text(z); en.write_text(e)
+
+          # typings
+          ip=Path('typings/i10n.d.ts'); s=ip.read_text(); needle="  | 'analytics-first-decision-sample'\n";
+          add="  | 'analytics-filter-all'\n  | 'analytics-filter-empty'\n  | 'analytics-filter-journal'\n  | 'analytics-filter-outcome'\n  | 'analytics-filter-reset'\n  | 'analytics-filter-status'\n  | 'analytics-filter-year'\n  | 'analytics-open-detail'\n  | 'analytics-records-title'\n"
+          if add.strip() not in s: s=s.replace(needle,needle+add,1)
+          ip.write_text(s)
+          PY
+      - name: Format
+        run: npx prettier --write src/modules/analyticsDashboard.ts src/modules/analytics.ts scripts/analytics.test.mjs addon/locale/zh-CN/addon.ftl addon/locale/en-US/addon.ftl
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "418982569+github-actions[bot]@users.noreply.github.com"
+          git add src/modules/analyticsDashboard.ts src/modules/analytics.ts scripts/analytics.test.mjs addon/locale/zh-CN/addon.ftl addon/locale/en-US/addon.ftl typings/i10n.d.ts
+          git commit -m "feat: make analytics dashboard interactive"
+          git push origin HEAD:feature/v0.6.0-analytics-dashboard
