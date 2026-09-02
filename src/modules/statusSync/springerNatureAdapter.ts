@@ -78,7 +78,9 @@ export class SpringerNatureAdapterError extends Error {
 export class SpringerNatureAdapter implements StatusProviderAdapter {
   readonly provider = "springer_nature" as const;
   private readonly session: SpringerSessionTransport;
-  private readonly parseDocument: (documentHTML: string) => SpringerDocumentLike;
+  private readonly parseDocument: (
+    documentHTML: string,
+  ) => SpringerDocumentLike;
   private readonly now: () => number;
 
   constructor(deps: SpringerNatureAdapterDeps) {
@@ -245,7 +247,9 @@ function normalizeWhitespace(value: string | null | undefined): string {
     .replace(/\s+/g, " ");
 }
 
-function isSpringerDetailCode(value: string | null): value is SpringerDetailCode {
+function isSpringerDetailCode(
+  value: string | null,
+): value is SpringerDetailCode {
   return value === "revision_requested";
 }
 
