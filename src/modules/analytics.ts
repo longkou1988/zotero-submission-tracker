@@ -32,11 +32,7 @@ export interface SubmissionAnalytics {
   journals: JournalAnalytics[];
 }
 
-export type OutcomeChartKey =
-  | "active"
-  | "accepted"
-  | "rejected"
-  | "withdrawn";
+export type OutcomeChartKey = "active" | "accepted" | "rejected" | "withdrawn";
 
 export interface OutcomeChartSegment {
   key: OutcomeChartKey;

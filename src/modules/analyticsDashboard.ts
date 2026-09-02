@@ -194,7 +194,8 @@ function buildOutcomePanel(
 
   const content = html(doc, "div");
   content.style.display = "grid";
-  content.style.gridTemplateColumns = "minmax(170px, 0.8fr) minmax(170px, 1.2fr)";
+  content.style.gridTemplateColumns =
+    "minmax(170px, 0.8fr) minmax(170px, 1.2fr)";
   content.style.gap = "16px";
   content.style.alignItems = "center";
   content.append(
@@ -219,7 +220,7 @@ function buildDonutChart(
   wrap.style.alignItems = "center";
   wrap.style.minHeight = "190px";
 
-  const svg = doc.createElementNS(SVG_NS, "svg");
+  const svg = doc.createElementNS(SVG_NS, "svg") as SVGSVGElement;
   svg.setAttribute("viewBox", "0 0 120 120");
   svg.setAttribute("width", "190");
   svg.setAttribute("height", "190");
@@ -508,7 +509,8 @@ function buildJournalBars(
   journals.forEach((journal, index) => {
     const row = html(doc, "div");
     row.style.display = "grid";
-    row.style.gridTemplateColumns = "minmax(150px, 240px) minmax(150px, 1fr) 52px";
+    row.style.gridTemplateColumns =
+      "minmax(150px, 240px) minmax(150px, 1fr) 52px";
     row.style.alignItems = "center";
     row.style.gap = "9px";
 
@@ -524,8 +526,7 @@ function buildJournalBars(
     track.style.height = "9px";
     track.style.borderRadius = "999px";
     track.style.overflow = "hidden";
-    track.style.background =
-      "color-mix(in srgb, currentColor 8%, transparent)";
+    track.style.background = "color-mix(in srgb, currentColor 8%, transparent)";
 
     const fill = html(doc, "div");
     fill.style.width = `${Math.max(3, widths[index] || 0)}%`;
