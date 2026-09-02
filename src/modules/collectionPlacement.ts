@@ -15,7 +15,9 @@ export function buildCollectionOptions(
   collections: CollectionLike[],
 ): CollectionOption[] {
   const visible = collections.filter((collection) => !collection.deleted);
-  const byID = new Map(visible.map((collection) => [collection.id, collection]));
+  const byID = new Map(
+    visible.map((collection) => [collection.id, collection]),
+  );
 
   const pathFor = (collection: CollectionLike): string => {
     const parts = [collection.name.trim() || "—"];
@@ -43,12 +45,11 @@ export function chooseDefaultCollectionID(
   collections: CollectionLike[],
 ): number | null {
   const valid = new Set(
-    collections.filter((collection) => !collection.deleted).map((collection) => collection.id),
+    collections
+      .filter((collection) => !collection.deleted)
+      .map((collection) => collection.id),
   );
-  if (
-    currentCollectionIDs.length === 1 &&
-    valid.has(currentCollectionIDs[0])
-  ) {
+  if (currentCollectionIDs.length === 1 && valid.has(currentCollectionIDs[0])) {
     return currentCollectionIDs[0];
   }
   if (rememberedCollectionID != null && valid.has(rememberedCollectionID)) {

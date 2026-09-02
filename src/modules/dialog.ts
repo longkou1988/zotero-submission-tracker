@@ -1,5 +1,5 @@
 import { config } from "../../package.json";
-import { getPref } from "../utils/prefs";
+import { getPref, setPref } from "../utils/prefs";
 import {
   STATUS_LIST,
   SubmissionRecord,
@@ -9,8 +9,60 @@ import {
 import { db } from "../db";
 import { getString } from "../utils/locale";
 import { openStatusPage } from "./statusPage";
+import {
+  buildCollectionOptions,
+  chooseDefaultCollectionID,
+} from "./collectionPlacement";
 import { refreshDashboard } from "./dashboard";
 import { buildStatusPicker, html, statusBadge, statusLabel } from "./ui";
+
+function getAvailableCollections(libraryID: number): Zotero.Collection[] {
+  try {
+    return (Zotero.Collections.getByLibrary(libraryID, true) || []).filter(
+      (collection: Zotero.Collection) => !collection.deleted,
+    );
+  } catch (e) {
+    ztoolkit.log("submissiontracker: get collections failed", e);
+    return [];
+  }
+}
+
+function getSelectedCollectionIDs(libraryID: number): number[] {
+  try {
+    const pane = Zotero.getActiveZoteroPane?.() as any;
+    if (!pane) return [];
+    let selected: Zotero.Collection[] = [];
+    if (typeof pane.getSelectedCollections === "function") {
+      selected = pane.getSelectedCollections() || [];
+    } else if (typeof pane.getSelectedCollection === "function") {
+      const collection = pane.getSelectedCollection();
+      if (collection) selected = [collection];
+    }
+    return selected
+      .filter(
+        (collection) =>
+          collection.libraryID === libraryID && !collection.deleted,
+      )
+      .map((collection) => collection.id);
+  } catch (e) {
+    ztoolkit.log("submissiontracker: get selected collection failed", e);
+    return [];
+  }
+}
+
+function getRememberedCollectionID(libraryID: number): number | null {
+  const raw = String(getPref("collection.lastTarget") || "");
+  const [savedLibrary, savedCollection] = raw.split(":");
+  if (
+    Number(savedLibrary) !== libraryID ||
+    !savedCollection ||
+    savedCollection === "root"
+  ) {
+    return null;
+  }
+  const id = Number(savedCollection);
+  return Number.isFinite(id) ? id : null;
+}
 
 /** The Zotero item a submission record points at, or null if it is gone. */
 function getRecordItem(record: SubmissionRecord): Zotero.Item | null {
@@ -206,6 +258,46 @@ export async function openCreateDialog(items: Zotero.Item[]): Promise<void> {
       dateInput.value = todayStr();
       form.appendChild(buildField(doc, getString("dialog-date"), [dateInput]));
 
+      const targetLibraryID =
+        items[0]?.libraryID || Zotero.Libraries.userLibraryID;
+      const collections = getAvailableCollections(targetLibraryID);
+      const collectionSelect = html(
+        doc,
+        "select",
+        "st-input",
+      ) as HTMLSelectElement;
+      const rootOption = doc.createElementNS(
+        "http://www.w3.org/1999/xhtml",
+        "option",
+      ) as HTMLOptionElement;
+      rootOption.value = "";
+      rootOption.textContent = getString("dialog-collection-root");
+      collectionSelect.appendChild(rootOption);
+      for (const optionData of buildCollectionOptions(collections)) {
+        const option = doc.createElementNS(
+          "http://www.w3.org/1999/xhtml",
+          "option",
+        ) as HTMLOptionElement;
+        option.value = String(optionData.id);
+        option.textContent = optionData.label;
+        collectionSelect.appendChild(option);
+      }
+      const defaultCollectionID = chooseDefaultCollectionID(
+        getSelectedCollectionIDs(targetLibraryID),
+        getRememberedCollectionID(targetLibraryID),
+        collections,
+      );
+      collectionSelect.value =
+        defaultCollectionID == null ? "" : String(defaultCollectionID);
+      form.appendChild(
+        buildField(
+          doc,
+          getString("dialog-collection"),
+          [collectionSelect],
+          getString("dialog-collection-hint"),
+        ),
+      );
+
       const followInput = html(doc, "input", "st-input") as HTMLInputElement;
       followInput.type = "date";
       form.appendChild(
@@ -281,14 +373,26 @@ export async function openCreateDialog(items: Zotero.Item[]): Promise<void> {
         save.disabled = true;
         try {
           const date = dateInput.value || todayStr();
+          const selectedCollectionID = collectionSelect.value
+            ? Number(collectionSelect.value)
+            : null;
+          setPref(
+            "collection.lastTarget",
+            `${targetLibraryID}:${selectedCollectionID == null ? "root" : selectedCollectionID}`,
+          );
           for (const _source of items) {
-            // Placeholder workflow: each submission gets its own new item,
-            // titled after the journal. The right-clicked source item is
-            // only the launch context and is left untouched.
+            // Placeholder workflow: each submission gets its own new item.
+            // It is created in the source library and optionally filed into
+            // the collection chosen above; the source item remains untouched.
             const placeholder = new Zotero.Item("journalArticle");
+            placeholder.libraryID = targetLibraryID;
             placeholder.setField("title", journal);
             placeholder.setField("date", date);
             await placeholder.saveTx();
+            if (selectedCollectionID != null) {
+              placeholder.addToCollection(selectedCollectionID);
+              await placeholder.saveTx();
+            }
             const record = await db.create({
               libraryID: placeholder.libraryID,
               itemKey: placeholder.key,

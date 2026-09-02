@@ -56,3 +56,7 @@ analytics-filter-outcome = Drill-down
 analytics-filter-empty = No submissions match the current filters
 analytics-records-title = Submission records ({ $count })
 analytics-open-detail = Details
+
+dialog-collection = Save to collection
+dialog-collection-root = Library root
+dialog-collection-hint = Defaults to the currently selected Zotero collection; you can choose another collection here

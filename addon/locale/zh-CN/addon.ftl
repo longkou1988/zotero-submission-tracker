@@ -56,3 +56,7 @@ analytics-filter-outcome = 当前下钻
 analytics-filter-empty = 当前筛选条件下没有投稿记录
 analytics-records-title = 投稿记录（{ $count }）
 analytics-open-detail = 详情
+
+dialog-collection = 保存到分类
+dialog-collection-root = 资料库根目录
+dialog-collection-hint = 默认跟随当前选中的 Zotero 分类，也可以手动选择其他分类
