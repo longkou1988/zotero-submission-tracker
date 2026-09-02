@@ -259,10 +259,8 @@ function rowToState(row: any): SyncStateRecord {
       ? (String(row.confidence) as SyncConfidence)
       : null,
     authState: String(row.authState || "unknown") as SyncAuthState,
-    lastAttemptAt:
-      row.lastAttemptAt == null ? null : Number(row.lastAttemptAt),
-    lastSuccessAt:
-      row.lastSuccessAt == null ? null : Number(row.lastSuccessAt),
+    lastAttemptAt: row.lastAttemptAt == null ? null : Number(row.lastAttemptAt),
+    lastSuccessAt: row.lastSuccessAt == null ? null : Number(row.lastSuccessAt),
     lastRawChangeAt:
       row.lastRawChangeAt == null ? null : Number(row.lastRawChangeAt),
     lastErrorCode: row.lastErrorCode
