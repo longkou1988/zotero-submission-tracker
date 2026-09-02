@@ -1,0 +1,44 @@
+name: Repair v0.5.0 Release
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/release-v0.5.0-repair.yml
+
+permissions:
+  contents: write
+
+jobs:
+  repair-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup JS
+        uses: zotero-plugin-dev/workflows/setup-js@main
+        with:
+          fetch-all: true
+
+      - name: Verify package version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          test "$VERSION" = "0.5.0"
+
+      - name: Create missing v0.5.0 tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git ls-remote --exit-code --tags origin refs/tags/v0.5.0 >/dev/null 2>&1; then
+            echo "v0.5.0 already exists"
+          else
+            git tag v0.5.0 "$GITHUB_SHA"
+            git push origin v0.5.0
+          fi
+
+      - name: Build v0.5.0
+        run: npm run build
+
+      - name: Publish v0.5.0 release assets
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: npm run release
