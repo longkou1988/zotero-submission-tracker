@@ -9,6 +9,8 @@ import {
 import {
   normalizeSpringerObservation,
   parseSpringerStatusFields,
+  SpringerNatureAdapter,
+  SpringerNatureAdapterError,
 } from "../src/modules/statusSync/springerNatureAdapter.ts";
 
 function fakeElement(tagName, textContent, attrs = {}) {
@@ -34,6 +36,40 @@ function readActionNeededFixture() {
       "utf8",
     ),
   );
+}
+
+function fakeStatusDocument(fixture) {
+  return {
+    querySelector(selector) {
+      if (selector === fixture.dom.headlineSelector) {
+        return { textContent: fixture.dom.headline };
+      }
+      return null;
+    },
+    querySelectorAll(selector) {
+      if (selector === fixture.dom.textSelector) {
+        return fixture.dom.text.map((textContent) => ({ textContent }));
+      }
+      return [];
+    },
+  };
+}
+
+function makeSubmission(statusUrl) {
+  return {
+    id: 7,
+    libraryID: 1,
+    itemKey: "ITEMKEY",
+    journal: "Example Journal",
+    currentStatus: "under_review",
+    followUpDate: null,
+    notes: "",
+    statusUrl,
+    manuscriptId: null,
+    lastCheckedAt: null,
+    createdAt: 1,
+    updatedAt: 1,
+  };
 }
 
 test("probe redaction removes private submission identifiers and email addresses", () => {
@@ -188,4 +224,72 @@ test("session manager reuses Zotero default web session without reading cookies"
   assert.doesNotMatch(source, /getPageData\s*\([^)]*["']cookie["']/s);
   assert.doesNotMatch(source, /localStorage|sessionStorage|Authorization/);
   assert.doesNotMatch(source, /log\s*\([^)]*documentHTML/s);
+});
+
+test("production adapter extracts only observed Springer status fields", async () => {
+  const fixture = readActionNeededFixture();
+  const url =
+    "https://submission.springernature.com/submission-details/example-id";
+  let requestedUrl = null;
+  const adapter = new SpringerNatureAdapter({
+    session: {
+      async requestSpringer(receivedUrl) {
+        requestedUrl = receivedUrl;
+        return { finalUrl: receivedUrl, documentHTML: "<transient/>" };
+      },
+    },
+    parseDocument(documentHTML) {
+      assert.equal(documentHTML, "<transient/>");
+      return fakeStatusDocument(fixture);
+    },
+    now: () => 1788350400000,
+  });
+
+  const snapshot = await adapter.fetchSnapshot(makeSubmission(url));
+
+  assert.equal(requestedUrl, url);
+  assert.deepEqual(snapshot, {
+    provider: "springer_nature",
+    rawStatus: "Action needed",
+    providerDetailCode: "revision_requested",
+    sourceStatusDate: null,
+    manuscriptId: null,
+    articleTitle: null,
+    journal: null,
+    detectedAt: 1788350400000,
+  });
+  assert.deepEqual(adapter.normalize(snapshot), {
+    canonicalStatus: null,
+    confidence: "unknown",
+    detailLabel: "Revision requested",
+  });
+});
+
+test("production adapter rejects malformed Springer status DOM", async () => {
+  const url =
+    "https://submission.springernature.com/submission-details/example-id";
+  const adapter = new SpringerNatureAdapter({
+    session: {
+      async requestSpringer(receivedUrl) {
+        return { finalUrl: receivedUrl, documentHTML: "<transient/>" };
+      },
+    },
+    parseDocument() {
+      return {
+        querySelector() {
+          return null;
+        },
+        querySelectorAll() {
+          return [];
+        },
+      };
+    },
+    now: () => 1788350400000,
+  });
+
+  await assert.rejects(
+    adapter.fetchSnapshot(makeSubmission(url)),
+    (error) =>
+      error instanceof SpringerNatureAdapterError && error.code === "PARSE_ERROR",
+  );
 });
