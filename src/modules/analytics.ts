@@ -9,6 +9,13 @@ export interface SubmissionItemState {
   deleted?: boolean;
 }
 
+export interface AnalyticsFilter {
+  year?: number | null;
+  status?: SubmissionStatus | null;
+  journal?: string | null;
+  outcome?: OutcomeChartKey | null;
+}
+
 export interface YearlySubmissionCount {
   year: number;
   count: number;
@@ -72,6 +79,32 @@ export function filterVisibleSubmissionRecords(
   return records.filter((record) => {
     const item = resolveItem(record.libraryID, record.itemKey);
     return !!item && !item.deleted;
+  });
+}
+
+export function filterAnalyticsSubmissions(
+  submissions: AnalyticsSubmission[],
+  filter: AnalyticsFilter,
+): AnalyticsSubmission[] {
+  return submissions.filter((input) => {
+    const { record, events } = input;
+    if (filter.year != null && getSubmissionYear(record, events) !== filter.year) {
+      return false;
+    }
+    if (filter.status && record.currentStatus !== filter.status) {
+      return false;
+    }
+    if (filter.journal && record.journal.trim() !== filter.journal.trim()) {
+      return false;
+    }
+    if (filter.outcome) {
+      if (filter.outcome === "active") {
+        if (!ACTIVE_STATUS_SET.has(record.currentStatus)) return false;
+      } else if (record.currentStatus !== filter.outcome) {
+        return false;
+      }
+    }
+    return true;
   });
 }
 
@@ -209,7 +242,7 @@ export function getFirstDecisionDays(events: StatusEvent[]): number | null {
   return daysBetween(start.date, decision.date);
 }
 
-function getSubmissionYear(
+export function getSubmissionYear(
   record: SubmissionRecord,
   events: StatusEvent[],
 ): number {
