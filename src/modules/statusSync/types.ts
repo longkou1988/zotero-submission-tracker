@@ -32,6 +32,7 @@ export type SyncHistoryEventType =
 export interface ProviderSnapshot {
   provider: ProviderKind;
   rawStatus: string;
+  providerDetailCode: string | null;
   sourceStatusDate: string | null;
   manuscriptId: string | null;
   articleTitle: string | null;
