@@ -1,10 +1,15 @@
 name: Interactive analytics temp
+
 on:
   push:
-    branches: [feature/v0.6.0-analytics-dashboard]
-    paths: [.github/workflows/interactive-analytics-temp.yml]
+    branches:
+      - feature/v0.6.0-analytics-dashboard
+    paths:
+      - .github/workflows/interactive-analytics-temp.yml
+
 permissions:
   contents: write
+
 jobs:
   patch:
     runs-on: ubuntu-latest
@@ -90,7 +95,6 @@ jobs:
     void refresh();
   });
   bar.append(year.wrap, status.wrap, journal.wrap, reset);
-
   if (filterState.outcome) {
     const chip = html(doc, "button", "st-chip st-chip--active") as HTMLButtonElement;
     chip.textContent = `${getString("analytics-filter-outcome")}: ${getOutcomeLabel(filterState.outcome)} ×`;
@@ -133,7 +137,6 @@ function buildSubmissionList(doc: Document, submissions: AnalyticsSubmission[]):
     row.style.gap = "8px";
     row.style.padding = "8px 6px";
     row.style.borderBottom = "1px solid color-mix(in srgb, currentColor 8%, transparent)";
-
     const title = html(doc, "div");
     title.textContent = getItemTitle(input.record.libraryID, input.record.itemKey) || input.record.journal || "—";
     title.style.overflow = "hidden";
@@ -160,35 +163,22 @@ function buildSubmissionList(doc: Document, submissions: AnalyticsSubmission[]):
 '''
           if marker not in t: raise SystemExit('buildKpis marker missing')
           t=t.replace(marker,helpers+marker,1)
-          # KPI clicks
-          t=t.replace('''    card.style.cursor = "default";\n    if (hint) card.title = hint;''','''    const outcome = label === getString("analytics-active") ? "active" : label === getString("analytics-accepted") ? "accepted" : label === getString("analytics-rejected") ? "rejected" : null;\n    const clickable = outcome || label === getString("analytics-total");\n    card.style.cursor = clickable ? "pointer" : "default";\n    if (clickable) {\n      card.setAttribute("role", "button");\n      card.setAttribute("tabindex", "0");\n      const activate = () => setOutcomeFilter(outcome);\n      card.addEventListener("click", activate);\n      card.addEventListener("keydown", (event: KeyboardEvent) => {\n        if (event.key === "Enter" || event.key === " ") { event.preventDefault(); activate(); }\n      });\n    }\n    if (hint) card.title = hint;''',1)
-          # Donut click
-          t=t.replace('''    circle.setAttribute("transform", "rotate(-90 60 60)");\n\n    const title''','''    circle.setAttribute("transform", "rotate(-90 60 60)");\n    circle.setAttribute("style", "cursor: pointer;");\n    circle.addEventListener("click", () => setOutcomeFilter(segment.key));\n\n    const title''',1)
-          # Legend click
-          t=t.replace('''    row.style.padding = "5px 0";\n\n    const dot''','''    row.style.padding = "5px 0";\n    row.style.cursor = "pointer";\n    row.setAttribute("role", "button");\n    row.addEventListener("click", () => setOutcomeFilter(segment.key));\n\n    const dot''',1)
-          # Year click
-          t=t.replace('''    column.style.flex = "1 0 52px";\n\n    const value''','''    column.style.flex = "1 0 52px";\n    column.style.cursor = "pointer";\n    column.setAttribute("role", "button");\n    column.addEventListener("click", () => setYearFilter(item.year));\n\n    const value''',1)
-          # Journal bar row click
-          t=t.replace('''    row.style.gap = "9px";\n\n    const label''','''    row.style.gap = "9px";\n    row.style.cursor = "pointer";\n    row.setAttribute("role", "button");\n    row.addEventListener("click", () => setJournalFilter(journal.journal));\n\n    const label''',1)
-          # Journal table rows clickable
+          t=t.replace('    card.style.cursor = "default";\n    if (hint) card.title = hint;', '    const outcome = label === getString("analytics-active") ? "active" : label === getString("analytics-accepted") ? "accepted" : label === getString("analytics-rejected") ? "rejected" : null;\n    const clickable = outcome || label === getString("analytics-total");\n    card.style.cursor = clickable ? "pointer" : "default";\n    if (clickable) {\n      card.setAttribute("role", "button");\n      card.setAttribute("tabindex", "0");\n      const activate = () => setOutcomeFilter(outcome);\n      card.addEventListener("click", activate);\n      card.addEventListener("keydown", (event: KeyboardEvent) => {\n        if (event.key === "Enter" || event.key === " ") { event.preventDefault(); activate(); }\n      });\n    }\n    if (hint) card.title = hint;',1)
+          t=t.replace('    circle.setAttribute("transform", "rotate(-90 60 60)");\n\n    const title', '    circle.setAttribute("transform", "rotate(-90 60 60)");\n    circle.setAttribute("style", "cursor: pointer;");\n    circle.addEventListener("click", () => setOutcomeFilter(segment.key));\n\n    const title',1)
+          t=t.replace('    row.style.padding = "5px 0";\n\n    const dot', '    row.style.padding = "5px 0";\n    row.style.cursor = "pointer";\n    row.setAttribute("role", "button");\n    row.addEventListener("click", () => setOutcomeFilter(segment.key));\n\n    const dot',1)
+          t=t.replace('    column.style.flex = "1 0 52px";\n\n    const value', '    column.style.flex = "1 0 52px";\n    column.style.cursor = "pointer";\n    column.setAttribute("role", "button");\n    column.addEventListener("click", () => setYearFilter(item.year));\n\n    const value',1)
+          t=t.replace('    row.style.gap = "9px";\n\n    const label', '    row.style.gap = "9px";\n    row.style.cursor = "pointer";\n    row.setAttribute("role", "button");\n    row.addEventListener("click", () => setJournalFilter(journal.journal));\n\n    const label',1)
           oldloop='''  for (const journal of analytics.journals) {\n    appendTableRow(doc, table, [\n      journal.journal,\n      String(journal.submissions),\n      String(journal.accepted),\n      String(journal.rejected),\n      formatDays(journal.averageFirstDecisionDays),\n    ]);\n  }'''
           newloop='''  for (const journal of analytics.journals) {\n    const start = table.children.length;\n    appendTableRow(doc, table, [\n      journal.journal,\n      String(journal.submissions),\n      String(journal.accepted),\n      String(journal.rejected),\n      formatDays(journal.averageFirstDecisionDays),\n    ]);\n    for (let index = start; index < start + 5; index += 1) {\n      const cell = table.children[index] as HTMLElement | undefined;\n      if (cell) {\n        cell.style.cursor = "pointer";\n        cell.addEventListener("click", () => setJournalFilter(journal.journal));\n      }\n    }\n  }'''
           if oldloop not in t: raise SystemExit('journal table loop not found')
           t=t.replace(oldloop,newloop,1)
           p.write_text(t)
-
-          # locale append
           zh=Path('addon/locale/zh-CN/addon.ftl'); z=zh.read_text();
           en=Path('addon/locale/en-US/addon.ftl'); e=en.read_text();
-          z += '''\nanalytics-filter-year = 年份\nanalytics-filter-status = 状态\nanalytics-filter-journal = 期刊\nanalytics-filter-all = 全部\nanalytics-filter-reset = 重置筛选\nanalytics-filter-outcome = 当前下钻\nanalytics-filter-empty = 当前筛选条件下没有投稿记录\nanalytics-records-title = 投稿记录（{ $count }）\nanalytics-open-detail = 详情\n'''
-          e += '''\nanalytics-filter-year = Year\nanalytics-filter-status = Status\nanalytics-filter-journal = Journal\nanalytics-filter-all = All\nanalytics-filter-reset = Reset filters\nanalytics-filter-outcome = Drill-down\nanalytics-filter-empty = No submissions match the current filters\nanalytics-records-title = Submission records ({ $count })\nanalytics-open-detail = Details\n'''
+          z += '\nanalytics-filter-year = 年份\nanalytics-filter-status = 状态\nanalytics-filter-journal = 期刊\nanalytics-filter-all = 全部\nanalytics-filter-reset = 重置筛选\nanalytics-filter-outcome = 当前下钻\nanalytics-filter-empty = 当前筛选条件下没有投稿记录\nanalytics-records-title = 投稿记录（{ $count }）\nanalytics-open-detail = 详情\n'
+          e += '\nanalytics-filter-year = Year\nanalytics-filter-status = Status\nanalytics-filter-journal = Journal\nanalytics-filter-all = All\nanalytics-filter-reset = Reset filters\nanalytics-filter-outcome = Drill-down\nanalytics-filter-empty = No submissions match the current filters\nanalytics-records-title = Submission records ({ $count })\nanalytics-open-detail = Details\n'
           zh.write_text(z); en.write_text(e)
-
-          # typings
-          ip=Path('typings/i10n.d.ts'); s=ip.read_text(); needle="  | 'analytics-first-decision-sample'\n";
-          add="  | 'analytics-filter-all'\n  | 'analytics-filter-empty'\n  | 'analytics-filter-journal'\n  | 'analytics-filter-outcome'\n  | 'analytics-filter-reset'\n  | 'analytics-filter-status'\n  | 'analytics-filter-year'\n  | 'analytics-open-detail'\n  | 'analytics-records-title'\n"
-          if add.strip() not in s: s=s.replace(needle,needle+add,1)
-          ip.write_text(s)
+          ip=Path('typings/i10n.d.ts'); s=ip.read_text(); needle="  | 'analytics-first-decision-sample'\n"; add="  | 'analytics-filter-all'\n  | 'analytics-filter-empty'\n  | 'analytics-filter-journal'\n  | 'analytics-filter-outcome'\n  | 'analytics-filter-reset'\n  | 'analytics-filter-status'\n  | 'analytics-filter-year'\n  | 'analytics-open-detail'\n  | 'analytics-records-title'\n"; s=s.replace(needle,needle+add,1); ip.write_text(s)
           PY
       - name: Format
         run: npx prettier --write src/modules/analyticsDashboard.ts src/modules/analytics.ts scripts/analytics.test.mjs addon/locale/zh-CN/addon.ftl addon/locale/en-US/addon.ftl
