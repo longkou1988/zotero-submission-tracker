@@ -6,7 +6,8 @@ const SECRET_QUERY_PATTERN =
   /([?&](?:token|access_token|id_token|code|key|secret|signature)=)[^&#\s]+/gi;
 const STRUCTURE_MARKER_PATTERN =
   /(status|stage|decision|review|revision|submission-state)/i;
-const NETWORK_PATH_PATTERN = /(submission|status|stage|decision|review|revision)/i;
+const NETWORK_PATH_PATTERN =
+  /(submission|status|stage|decision|review|revision)/i;
 
 const SAFE_STATUS_TEXT = new Set([
   "submitted",
@@ -91,7 +92,11 @@ function collectDomCandidates(
 
   const candidates: SpringerProbeDomCandidate[] = [];
   const nodes = documentLike.querySelectorAll("*");
-  for (let index = 0; index < nodes.length && candidates.length < 100; index++) {
+  for (
+    let index = 0;
+    index < nodes.length && candidates.length < 100;
+    index++
+  ) {
     const node = nodes[index];
     const markers = collectStructureMarkers(node);
     if (!markers.length) {
@@ -123,7 +128,11 @@ function collectStructureMarkers(node: ProbeElementLike): string[] {
 
 function safeMarkerValue(value: string): string {
   const trimmed = value.trim();
-  if (!trimmed || trimmed.length > 80 || !STRUCTURE_MARKER_PATTERN.test(trimmed)) {
+  if (
+    !trimmed ||
+    trimmed.length > 80 ||
+    !STRUCTURE_MARKER_PATTERN.test(trimmed)
+  ) {
     return "";
   }
   return redactSpringerProbeText(trimmed).replace(/\s+/g, " ");
