@@ -36,7 +36,7 @@ test("root is used when remembered or selected collections are invalid", () => {
 });
 
 test("create dialog uses custom collection picker instead of broken native select", () => {
-  const source = readFileSync(new URL("../src/modules/dialog.ts", import.meta.url), "utf8");
+  const source = readFileSync("src/modules/dialog.ts", "utf8");
   assert.match(source, /buildCollectionPicker/);
   assert.doesNotMatch(source, /const collectionSelect = html\(/);
 });
