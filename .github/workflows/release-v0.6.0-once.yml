@@ -1,4 +1,4 @@
-name: Publish v0.6.0 Tag
+name: Publish v0.6.0 Release
 
 on:
   push:
@@ -11,26 +11,28 @@ permissions:
   contents: write
 
 jobs:
-  tag-release:
+  publish-release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Setup JS
+        uses: zotero-plugin-dev/workflows/setup-js@main
         with:
-          fetch-depth: 0
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
+          fetch-all: true
+
       - name: Verify release version
         run: |
           VERSION=$(node -p "require('./package.json').version")
           test "$VERSION" = "0.6.0"
-      - name: Create v0.6.0 tag on release merge
+
+      - name: Verify v0.6.0 tag
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          if git ls-remote --exit-code --tags origin refs/tags/v0.6.0 >/dev/null 2>&1; then
-            echo "v0.6.0 already exists"
-          else
-            git tag v0.6.0 96d3ceb1df1e3fc426db33727416a9a8f0c030a5
-            git push origin v0.6.0
-          fi
+          git fetch --tags --force
+          test "$(git rev-parse v0.6.0)" = "96d3ceb1df1e3fc426db33727416a9a8f0c030a5"
+
+      - name: Build v0.6.0
+        run: npm run build
+
+      - name: Publish v0.6.0 release assets
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: npm run release
