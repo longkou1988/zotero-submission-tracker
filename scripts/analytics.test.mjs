@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   computeSubmissionAnalytics,
+  filterVisibleSubmissionRecords,
   getJournalBarWidths,
   getOutcomeChartSegments,
 } from "../src/modules/analytics.ts";
@@ -42,6 +43,24 @@ test("analytics counts outcomes and excludes unfinished submissions from outcome
   assert.equal(analytics.withdrawn, 1);
   assert.equal(analytics.acceptanceRate, 50);
   assert.equal(analytics.rejectionRate, 50);
+});
+
+test("trashed or missing Zotero items are excluded from analytics records", () => {
+  const records = [
+    record(1, "Nature", "under_review"),
+    record(2, "Journal A", "accepted"),
+    record(3, "Journal B", "rejected"),
+  ];
+  const visible = filterVisibleSubmissionRecords(records, (_libraryID, itemKey) => {
+    if (itemKey === "ITEM1") return { deleted: true };
+    if (itemKey === "ITEM2") return { deleted: false };
+    return undefined;
+  });
+
+  assert.deepEqual(
+    visible.map((item) => item.journal),
+    ["Journal A"],
+  );
 });
 
 test("average first decision time uses submitted date and first decision event", () => {
