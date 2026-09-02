@@ -1,0 +1,39 @@
+name: Fix analytics charts temp
+
+on:
+  push:
+    branches:
+      - feature/v0.6.0-analytics-dashboard
+    paths:
+      - .github/workflows/fix-analytics-charts-temp.yml
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup JS
+        uses: zotero-plugin-dev/workflows/setup-js@main
+      - name: Fix SVG typing
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path("src/modules/analyticsDashboard.ts")
+          text = path.read_text()
+          old = 'const svg = doc.createElementNS(SVG_NS, "svg");'
+          new = 'const svg = doc.createElementNS(SVG_NS, "svg") as SVGSVGElement;'
+          if old not in text:
+              raise SystemExit("SVG creation line not found")
+          path.write_text(text.replace(old, new, 1))
+          PY
+      - name: Format analytics files
+        run: npx prettier --write src/modules/analytics.ts src/modules/analyticsDashboard.ts scripts/analytics.test.mjs
+      - name: Commit fixes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/modules/analytics.ts src/modules/analyticsDashboard.ts scripts/analytics.test.mjs
+          git commit -m "fix: type and format analytics charts"
+          git push origin HEAD:feature/v0.6.0-analytics-dashboard
