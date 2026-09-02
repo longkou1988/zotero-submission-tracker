@@ -19,6 +19,7 @@ export interface SyncStateRecord {
   rawStatus: string | null;
   normalizedStatus: SubmissionStatus | null;
   confidence: SyncConfidence | null;
+  detailLabel: string | null;
   authState: SyncAuthState;
   lastAttemptAt: number | null;
   lastSuccessAt: number | null;
@@ -73,6 +74,7 @@ export class SyncStore {
           rawStatus TEXT,
           normalizedStatus TEXT,
           confidence TEXT,
+          detailLabel TEXT,
           authState TEXT NOT NULL DEFAULT 'unknown',
           lastAttemptAt INTEGER,
           lastSuccessAt INTEGER,
@@ -84,6 +86,7 @@ export class SyncStore {
           PRIMARY KEY (submissionId, provider)
         )`,
       );
+      await ensureDetailLabelColumn();
       await Zotero.DB.queryAsync(
         `CREATE INDEX IF NOT EXISTS ${TABLE_SYNC_STATE}_eligibility
          ON ${TABLE_SYNC_STATE} (provider, enabled, authState, lastAttemptAt)`,
@@ -190,6 +193,7 @@ export class SyncStore {
        SET rawStatus = ?,
            normalizedStatus = ?,
            confidence = ?,
+           detailLabel = ?,
            authState = ?,
            lastAttemptAt = ?,
            lastSuccessAt = ?,
@@ -202,6 +206,7 @@ export class SyncStore {
         update.snapshot.rawStatus,
         update.normalization.canonicalStatus,
         update.normalization.confidence,
+        update.normalization.detailLabel,
         update.authState ?? "connected",
         detectedAt,
         detectedAt,
@@ -246,6 +251,18 @@ export class SyncStore {
   }
 }
 
+async function ensureDetailLabelColumn(): Promise<void> {
+  const columns = (await Zotero.DB.queryAsync(
+    `PRAGMA table_info(${TABLE_SYNC_STATE})`,
+  )) as any[];
+  if ((columns || []).some((column) => String(column.name) === "detailLabel")) {
+    return;
+  }
+  await Zotero.DB.queryAsync(
+    `ALTER TABLE ${TABLE_SYNC_STATE} ADD COLUMN detailLabel TEXT`,
+  );
+}
+
 function rowToState(row: any): SyncStateRecord {
   return {
     submissionId: Number(row.submissionId),
@@ -258,6 +275,7 @@ function rowToState(row: any): SyncStateRecord {
     confidence: row.confidence
       ? (String(row.confidence) as SyncConfidence)
       : null,
+    detailLabel: row.detailLabel ? String(row.detailLabel) : null,
     authState: String(row.authState || "unknown") as SyncAuthState,
     lastAttemptAt: row.lastAttemptAt == null ? null : Number(row.lastAttemptAt),
     lastSuccessAt: row.lastSuccessAt == null ? null : Number(row.lastSuccessAt),
