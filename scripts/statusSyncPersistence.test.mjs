@@ -28,6 +28,7 @@ test("sync state stores provider status without reusing lastCheckedAt", () => {
     "rawStatus",
     "normalizedStatus",
     "confidence",
+    "detailLabel",
     "authState",
     "lastAttemptAt",
     "lastSuccessAt",
