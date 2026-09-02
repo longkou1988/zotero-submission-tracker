@@ -26,13 +26,10 @@ export class StatusSyncScheduler {
       return;
     }
     this.stopped = false;
-    this.startupTimer = this.deps.setTimeout(
-      () => {
-        this.startupTimer = null;
-        void this.syncIfDue().finally(() => this.scheduleNext());
-      },
-      this.deps.startupDelayMs ?? DEFAULT_STARTUP_DELAY_MS,
-    );
+    this.startupTimer = this.deps.setTimeout(() => {
+      this.startupTimer = null;
+      void this.syncIfDue().finally(() => this.scheduleNext());
+    }, this.deps.startupDelayMs ?? DEFAULT_STARTUP_DELAY_MS);
   }
 
   stop(): void {
@@ -77,12 +74,9 @@ export class StatusSyncScheduler {
     if (this.stopped || this.regularTimer != null) {
       return;
     }
-    this.regularTimer = this.deps.setTimeout(
-      () => {
-        this.regularTimer = null;
-        void this.syncIfDue().finally(() => this.scheduleNext());
-      },
-      this.deps.syncIntervalMs ?? DEFAULT_SYNC_INTERVAL_MS,
-    );
+    this.regularTimer = this.deps.setTimeout(() => {
+      this.regularTimer = null;
+      void this.syncIfDue().finally(() => this.scheduleNext());
+    }, this.deps.syncIntervalMs ?? DEFAULT_SYNC_INTERVAL_MS);
   }
 }
