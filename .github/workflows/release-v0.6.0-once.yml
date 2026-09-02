@@ -1,0 +1,36 @@
+name: Publish v0.6.0 Tag
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/release-v0.6.0-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  tag-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Verify release version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          test "$VERSION" = "0.6.0"
+      - name: Create v0.6.0 tag on release merge
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git ls-remote --exit-code --tags origin refs/tags/v0.6.0 >/dev/null 2>&1; then
+            echo "v0.6.0 already exists"
+          else
+            git tag v0.6.0 96d3ceb1df1e3fc426db33727416a9a8f0c030a5
+            git push origin v0.6.0
+          fi
