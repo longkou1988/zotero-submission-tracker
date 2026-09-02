@@ -1,10 +1,13 @@
-import { STARTUP_DELAY_MS, SYNC_INTERVAL_MS } from "./schedule";
+const DEFAULT_STARTUP_DELAY_MS = 45 * 1000;
+const DEFAULT_SYNC_INTERVAL_MS = 6 * 60 * 60 * 1000;
 
 export interface SchedulerDeps {
   listEligibleSubmissionIds(): Promise<number[]>;
   syncOne(submissionId: number, options?: { force?: boolean }): Promise<void>;
   setTimeout(callback: () => void, ms: number): number;
   clearTimeout(id: number): void;
+  startupDelayMs?: number;
+  syncIntervalMs?: number;
 }
 
 export class StatusSyncScheduler {
@@ -23,10 +26,13 @@ export class StatusSyncScheduler {
       return;
     }
     this.stopped = false;
-    this.startupTimer = this.deps.setTimeout(() => {
-      this.startupTimer = null;
-      void this.syncIfDue().finally(() => this.scheduleNext());
-    }, STARTUP_DELAY_MS);
+    this.startupTimer = this.deps.setTimeout(
+      () => {
+        this.startupTimer = null;
+        void this.syncIfDue().finally(() => this.scheduleNext());
+      },
+      this.deps.startupDelayMs ?? DEFAULT_STARTUP_DELAY_MS,
+    );
   }
 
   stop(): void {
@@ -71,9 +77,12 @@ export class StatusSyncScheduler {
     if (this.stopped || this.regularTimer != null) {
       return;
     }
-    this.regularTimer = this.deps.setTimeout(() => {
-      this.regularTimer = null;
-      void this.syncIfDue().finally(() => this.scheduleNext());
-    }, SYNC_INTERVAL_MS);
+    this.regularTimer = this.deps.setTimeout(
+      () => {
+        this.regularTimer = null;
+        void this.syncIfDue().finally(() => this.scheduleNext());
+      },
+      this.deps.syncIntervalMs ?? DEFAULT_SYNC_INTERVAL_MS,
+    );
   }
 }
