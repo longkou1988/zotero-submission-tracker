@@ -1,10 +1,7 @@
 import type { SubmissionStatus } from "../../types";
 import type { SyncErrorCode } from "./types";
 
-export type SpringerSourceSystem =
-  | "snapp"
-  | "editorial_manager"
-  | "unknown";
+export type SpringerSourceSystem = "snapp" | "editorial_manager" | "unknown";
 
 export type DiscoveryImportState = "pending" | "imported" | "ignored";
 
