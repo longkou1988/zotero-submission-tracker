@@ -37,8 +37,7 @@ export interface ResolvedDiscoveryUpsertInput {
   lastDetailFetchedAt: number | null;
 }
 
-export interface DiscoveredSubmissionRecord
-  extends ResolvedDiscoveryUpsertInput {
+export interface DiscoveredSubmissionRecord extends ResolvedDiscoveryUpsertInput {
   id: number;
   importState: DiscoveryImportState;
   linkedSubmissionId: number | null;

@@ -213,7 +213,9 @@ export class DiscoveryStore {
       if (current.linkedSubmissionId === linkedSubmissionId) {
         return current;
       }
-      throw new Error("Discovery record is already linked to another submission");
+      throw new Error(
+        "Discovery record is already linked to another submission",
+      );
     }
     if (current.importState !== "pending") {
       throw new Error("Only pending discovery records can be imported");
@@ -238,15 +240,21 @@ export class DiscoveryStore {
 
 function assertResolvedIdentity(input: ResolvedDiscoveryUpsertInput): void {
   if (input.providerFamily !== "springer_nature") {
-    throw new Error("Discovery record requires the Springer Nature provider family");
+    throw new Error(
+      "Discovery record requires the Springer Nature provider family",
+    );
   }
   if (!input.providerSubmissionId.trim()) {
-    throw new Error("Discovery record requires a resolved Springer submission identity");
+    throw new Error(
+      "Discovery record requires a resolved Springer submission identity",
+    );
   }
 
   const resolved = parseResolvedStatusUrl(input.statusUrl);
   if (!resolved || resolved !== input.providerSubmissionId) {
-    throw new Error("Discovery record requires a resolved Springer submission identity");
+    throw new Error(
+      "Discovery record requires a resolved Springer submission identity",
+    );
   }
 }
 
@@ -298,7 +306,9 @@ function rowToRecord(row: unknown): DiscoveredSubmissionRecord {
     revisionDueDate: nullableString(value.revisionDueDate),
     importState: asImportState(value.importState),
     linkedSubmissionId:
-      value.linkedSubmissionId == null ? null : Number(value.linkedSubmissionId),
+      value.linkedSubmissionId == null
+        ? null
+        : Number(value.linkedSubmissionId),
     lastErrorCode: nullableErrorCode(value.lastErrorCode),
     lastErrorMessage: nullableString(value.lastErrorMessage),
     discoveredAt: Number(value.discoveredAt),
@@ -315,11 +325,15 @@ function nullableString(value: unknown): string | null {
 }
 
 function nullableStatus(value: unknown): SubmissionStatus | null {
-  return value == null || value === "" ? null : (String(value) as SubmissionStatus);
+  return value == null || value === ""
+    ? null
+    : (String(value) as SubmissionStatus);
 }
 
 function nullableErrorCode(value: unknown): SyncErrorCode | null {
-  return value == null || value === "" ? null : (String(value) as SyncErrorCode);
+  return value == null || value === ""
+    ? null
+    : (String(value) as SyncErrorCode);
 }
 
 function asSourceSystem(value: unknown): SpringerSourceSystem {
