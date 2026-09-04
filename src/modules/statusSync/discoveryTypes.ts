@@ -26,11 +26,9 @@ export interface ResolvedSpringerIdentity {
 }
 
 export interface ResolvedDiscoveryCandidate
-  extends SpringerDiscoveryCandidate,
-    ResolvedSpringerIdentity {}
+  extends SpringerDiscoveryCandidate, ResolvedSpringerIdentity {}
 
-export interface UnresolvedDiscoveryCandidate
-  extends SpringerDiscoveryCandidate {
+export interface UnresolvedDiscoveryCandidate extends SpringerDiscoveryCandidate {
   unresolvedReason: DiscoveryUnresolvedReason;
 }
 
