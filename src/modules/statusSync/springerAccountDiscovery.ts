@@ -101,14 +101,16 @@ export function toSpringerDiscoveryCheckResult(
     providerSubmissionIdRedacted: "[id]",
     reason: null,
   }));
-  const unresolved: SpringerDiscoveryCheckCard[] = scan.unresolved.map((item) => ({
-    index: item.index,
-    sourceSystem: item.sourceSystem,
-    resolution: "unresolved",
-    finalPage: "not_followed",
-    providerSubmissionIdRedacted: null,
-    reason: item.unresolvedReason,
-  }));
+  const unresolved: SpringerDiscoveryCheckCard[] = scan.unresolved.map(
+    (item) => ({
+      index: item.index,
+      sourceSystem: item.sourceSystem,
+      resolution: "unresolved",
+      finalPage: "not_followed",
+      providerSubmissionIdRedacted: null,
+      reason: item.unresolvedReason,
+    }),
+  );
   const cards = [...resolved, ...unresolved].sort((a, b) => a.index - b.index);
 
   return {
