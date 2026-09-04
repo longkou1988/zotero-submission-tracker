@@ -1,4 +1,3 @@
-import { sessionManager } from "./sessionManager";
 import type {
   ResolvedSpringerIdentity,
   SpringerAccountScanResult,
@@ -89,11 +88,6 @@ export class SpringerAccountDiscovery {
 
     return { resolved, unresolved };
   }
-}
-
-export async function runSpringerDiscoveryCheck(): Promise<SpringerDiscoveryCheckResult> {
-  const scanner = new SpringerAccountDiscovery({ session: sessionManager });
-  return toSpringerDiscoveryCheckResult(await scanner.scanAccount());
 }
 
 export function toSpringerDiscoveryCheckResult(
