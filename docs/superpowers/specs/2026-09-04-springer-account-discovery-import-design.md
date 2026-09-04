@@ -80,6 +80,12 @@ Observed stable markers include:
 
 The account page can contain cards originating from both SNAPP and Editorial Manager. The source system is discovery metadata only; it is not the user-facing provider identity.
 
+Observed Editorial Manager cards can expose the same generic `www2.cloud.editorialmanager.com/.../default2.aspx` href. That generic href is not a submission identity. Account parsing therefore produces an **ephemeral card candidate** first. A durable `DiscoveredSubmission` may be written only after the exact card has been resolved to an observed final Springer details URL with a unique provider submission ID.
+
+The implementation must runtime-verify how an individual Editorial Manager card is activated in Zotero's hosted browser context. It may use the observed card/link DOM only after that exact activation/redirect flow is demonstrated. It must not invent query parameters, hidden endpoints, or synthetic Editorial Manager IDs. If exact per-card activation cannot be automated safely, Editorial Manager account discovery remains incomplete rather than falling back to title-based permanent identity.
+
+No pagination/load-more mechanism has yet been observed. The scanner must process only cards actually exposed through observed UI behavior until further evidence exists.
+
 ### 3.2 Unified submission-details page
 
 Observed both SNAPP- and Editorial-Manager-origin cards ultimately reaching:
@@ -101,7 +107,7 @@ Observed detail markers include:
 
 Observed history text contains explicit dated events such as submission received, technical check, editorial assignment, reviewer invitation/acceptance/report receipt, revision requested, and revision received. Repeated event types across multiple review/revision rounds are valid and must be preserved.
 
-No selector, endpoint, author field, editor identity field, or pagination mechanism may be implemented by guesswork. New provider-specific parsing rules require observed DOM/API evidence or a redacted fixture.
+No selector, endpoint, author field, editor identity field, reviewer count, major/minor revision label, or pagination mechanism may be implemented by guesswork. New provider-specific parsing rules require observed DOM/API evidence or a redacted fixture.
 
 ## 4. Provider Model
 
@@ -114,7 +120,7 @@ sourceSystem: "snapp" | "editorial_manager" | "unknown"
 
 The detail parser is unified because both observed source systems converge on the same `submission.springernature.com/submission-details/<id>` surface.
 
-The provider submission identifier is the non-empty `<id>` segment from the observed details URL after the redirect has completed. Editorial Manager's generic `/default2.aspx` URL must never be treated as a unique submission identifier.
+The provider submission identifier is the non-empty `<id>` segment from the observed details URL after navigation/redirect has completed. Editorial Manager's generic `/default2.aspx` URL must never be treated as a unique submission identifier.
 
 ## 5. End-to-End Data Flow
 
@@ -123,6 +129,12 @@ Springer Nature account page
         |
         v
 SpringerAccountDiscovery
+        |
+        v
+Ephemeral AccountCardCandidate[]
+        |
+        v
+Resolve exact card -> final submission-details/<id>
         |
         v
 DiscoveredSubmission staging
@@ -193,7 +205,23 @@ Rules:
 
 ## 8. Discovery Data Model
 
-Introduce a focused staging entity rather than overloading `SubmissionRecord`:
+Account-card parsing may use an in-memory candidate before a durable provider ID is known:
+
+```ts
+interface AccountCardCandidate {
+  sourceSystem: "snapp" | "editorial_manager" | "unknown";
+  title: string | null;
+  journal: string | null;
+  rawStatus: string | null;
+  lastUpdatedText: string | null;
+  observedHref: string | null;
+  cardIndex: number;
+}
+```
+
+This candidate is not a durable submission identity and is not used for import deduplication.
+
+Introduce a focused durable staging entity rather than overloading `SubmissionRecord`:
 
 ```ts
 interface DiscoveredSubmission {
@@ -213,6 +241,8 @@ interface DiscoveredSubmission {
   revisionDueDate: string | null;
   importState: "pending" | "imported" | "ignored";
   linkedSubmissionId: number | null;
+  lastImportErrorCode: string | null;
+  lastImportErrorMessage: string | null;
   discoveredAt: number;
   lastSeenAt: number;
   lastDetailFetchedAt: number | null;
@@ -224,6 +254,28 @@ interface DiscoveredSubmission {
 Additional provider metadata is stored separately so that `SubmissionRecord` remains the core submission domain object.
 
 ## 9. Structured Provider Metadata
+
+A compact provider metadata row stores safe structured signals that do not belong in the canonical `SubmissionRecord`:
+
+```ts
+interface SubmissionProviderMetadata {
+  submissionId: number;
+  providerFamily: "springer_nature";
+  sourceSystem: "snapp" | "editorial_manager" | "unknown";
+  providerSubmissionId: string;
+  rawStatus: string | null;
+  progressStage: string | null;
+  detailLabel: string | null;
+  submittedDate: string | null;
+  revisionDueDate: string | null;
+  editorFeedbackAvailable: boolean;
+  reviewerFeedbackAvailable: boolean;
+  explicitReviewerCount: number | null;
+  updatedAt: number;
+}
+```
+
+The feedback booleans represent only the presence of the observed feedback sections. Their text bodies are never persisted.
 
 ### 9.1 Authors
 
@@ -346,11 +398,11 @@ The same title can legitimately have multiple different submission records.
 When the user confirms creation of a new item:
 
 ```text
-itemType        = journalArticle
-title           = Springer manuscript title
-creators        = reliable Springer authors, if available
-publicationTitle= reliable Springer journal, if available
-date            = not populated from submission date
+itemType         = journalArticle
+title            = Springer manuscript title
+creators         = reliable Springer authors, if available
+publicationTitle = reliable Springer journal, if available
+date             = not populated from submission date
 ```
 
 Submission date belongs to submission metadata, not Zotero's bibliographic publication `Date` field.
@@ -398,7 +450,7 @@ Batch import defaults to one target library/collection. The target collection de
 
 ### 15.1 Batch behavior
 
-A batch may partially succeed. Successful imports remain committed; failed entries remain `pending` with a retryable error.
+A batch may partially succeed. Successful imports remain committed; failed entries remain `pending` with a retryable sanitized error stored in `lastImportErrorCode/lastImportErrorMessage`.
 
 ### 15.2 Single-record logical atomicity
 
@@ -409,7 +461,7 @@ Use a staged/compensating sequence:
 1. re-check provider mapping/idempotency;
 2. resolve existing Zotero item or create a plugin-owned new item;
 3. write the formal `SubmissionRecord` and provider metadata in an add-on DB transaction;
-4. mark the discovery row `imported` and set `linkedSubmissionId` in that same add-on transaction;
+4. mark the discovery row `imported`, set `linkedSubmissionId`, and clear import error fields in that same add-on transaction;
 5. if add-on persistence fails after creating a new plugin-owned Zotero item, perform compensating cleanup only when it is safe and still clearly plugin-owned/unmodified;
 6. otherwise leave the discovery row pending with a recoverable error and never fabricate a completed mapping.
 
@@ -485,33 +537,41 @@ Required test groups:
 1. Account-page parser:
    - detects SNAPP and Editorial Manager source markers;
    - extracts only observed safe card fields;
+   - emits ephemeral candidates before provider identity is resolved;
    - does not treat generic EM landing URLs as submission IDs.
-2. Details parser:
+2. Editorial Manager card-resolution runtime test:
+   - activates one exact observed EM card in the Zotero-hosted browser;
+   - waits for the observed final `submission-details/<id>` destination;
+   - proves two different EM cards resolve independently when available;
+   - persists neither the generic EM href nor title as permanent submission identity.
+3. Details parser:
    - extracts title, journal, raw status, detail, due date, progress stages;
    - parses repeated dated history events;
    - preserves repeated event types;
+   - records feedback-section presence without feedback text;
    - refuses to guess major/minor revision.
-3. Privacy tests:
+4. Privacy tests:
    - fixtures/log payloads contain no cookies, tokens, emails, full feedback bodies, or full HTML.
-4. Title matcher:
+5. Title matcher:
    - exact normalized match auto-proposes an existing item;
    - similarity never auto-links.
-5. Discovery lifecycle:
+6. Discovery lifecycle:
    - `pending/imported/ignored` transitions;
    - ignored records do not re-notify;
    - imported mapping is retained.
-6. Import idempotency and recovery:
+7. Import idempotency and recovery:
    - repeated import produces one mapping;
    - partial batch failure leaves successful entries committed;
+   - failed entries retain sanitized retry state;
    - single-record failure does not silently leave a false imported state.
-7. Zotero metadata protection:
+8. Zotero metadata protection:
    - existing creators/bibliographic fields are not overwritten;
    - new items use Springer title and reliable authors only.
-8. Scheduling:
+9. Scheduling:
    - initial full scan is user-triggered;
    - automatic discovery is at most once per 24 hours;
    - imported status sync remains on the existing 6-hour cadence.
-9. Runtime authenticated probe:
+10. Runtime authenticated probe:
    - verify Zotero's hosted browser can reuse the authenticated Springer session without exposing session material;
    - verify observed account and details markers against the user's real runtime before release.
 
@@ -522,17 +582,18 @@ The feature is complete when a user can:
 1. log in to Springer Nature normally;
 2. click **Scan Springer** in Submission Tracker;
 3. discover all submissions exposed by the observed account UI without entering credentials into the add-on;
-4. see new submissions in a pending-import confirmation view;
-5. have normalized exact-title matches proposed automatically while similar titles remain manual decisions;
-6. import selected submissions into existing Zotero items or create new `journalArticle` items titled from Springer;
-7. preserve existing Zotero creators and bibliographic metadata;
-8. retain structured Springer history and safe provider metadata without saving feedback bodies or authentication material;
-9. avoid duplicate imports under retries/restarts;
-10. have imported records continue through the automatic status-sync subsystem;
-11. ignore selected discoveries without repeated notifications and restore them later if desired.
+4. resolve each durable imported/staged submission to a unique final Springer provider ID rather than a generic Editorial Manager landing URL;
+5. see new submissions in a pending-import confirmation view;
+6. have normalized exact-title matches proposed automatically while similar titles remain manual decisions;
+7. import selected submissions into existing Zotero items or create new `journalArticle` items titled from Springer;
+8. preserve existing Zotero creators and bibliographic metadata;
+9. retain structured Springer history and safe provider metadata without saving feedback bodies or authentication material;
+10. avoid duplicate imports under retries/restarts;
+11. have imported records continue through the automatic status-sync subsystem;
+12. ignore selected discoveries without repeated notifications and restore them later if desired.
 
 ## 21. Explicit Evidence Boundary
 
-The implementation is evidence-driven. At the time of this design, reliable observations exist for account card structure, source-system markers, unified detail URLs, manuscript title, journal, current status, revision due text, progress stages, and dated history events.
+The implementation is evidence-driven. At the time of this design, reliable observations exist for account card structure, source-system markers, a manually exercised Editorial Manager card redirect to the unified details surface, unified detail URLs, manuscript title, journal, current status, revision due text, progress stages, feedback-section presence, and dated history events.
 
-Reliable structured author fields, explicit editor identity fields, explicit reviewer counts, explicit major/minor revision labels, and pagination/load-more mechanics have **not** yet been observed. Code must therefore represent those values as optional and leave them unset until a future redacted runtime observation establishes a safe parser rule. No speculative selector or endpoint is permitted.
+The exact automated per-card Editorial Manager activation behavior inside Zotero's hosted browser is **not yet runtime-verified**. Reliable structured author fields, explicit editor identity fields, explicit reviewer counts, explicit major/minor revision labels, and pagination/load-more mechanics have also **not** yet been observed. Code must therefore represent those values as optional and leave them unset until a future redacted runtime observation establishes a safe parser/navigation rule. No speculative selector, endpoint, identifier, or inferred metadata is permitted.
