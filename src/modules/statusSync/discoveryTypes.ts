@@ -5,6 +5,11 @@ export type SpringerSourceSystem = "snapp" | "editorial_manager" | "unknown";
 
 export type DiscoveryImportState = "pending" | "imported" | "ignored";
 
+export type DiscoveryUnresolvedReason =
+  | "missing_title"
+  | "requires_runtime_resolution"
+  | "unsupported_link";
+
 export interface SpringerDiscoveryCandidate {
   index: number;
   sourceSystem: SpringerSourceSystem;
@@ -18,6 +23,27 @@ export interface SpringerDiscoveryCandidate {
 export interface ResolvedSpringerIdentity {
   providerSubmissionId: string;
   statusUrl: string;
+}
+
+export interface ResolvedDiscoveryCandidate
+  extends SpringerDiscoveryCandidate,
+    ResolvedSpringerIdentity {}
+
+export interface UnresolvedDiscoveryCandidate
+  extends SpringerDiscoveryCandidate {
+  unresolvedReason: DiscoveryUnresolvedReason;
+}
+
+export interface SpringerAccountScanResult {
+  resolved: ResolvedDiscoveryCandidate[];
+  unresolved: UnresolvedDiscoveryCandidate[];
+}
+
+export interface SpringerDiscoverySession {
+  requestSpringer(url: string): Promise<{
+    finalUrl: string;
+    documentHTML: string;
+  }>;
 }
 
 export interface ResolvedDiscoveryUpsertInput {
