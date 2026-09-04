@@ -7,6 +7,7 @@ import { openDashboard, closeDashboard } from "./modules/dashboard";
 import { openCreateDialog } from "./modules/dialog";
 import { checkFollowUps } from "./modules/notify";
 import { runSpringerProbe } from "./modules/statusSync/springerProbe";
+import { runSpringerDiscoveryCheck } from "./modules/statusSync/springerAccountDiscovery";
 
 class Addon {
   public data: {
@@ -31,6 +32,7 @@ class Addon {
     openCreateDialog: typeof openCreateDialog;
     checkFollowUps: typeof checkFollowUps;
     runSpringerProbe?: typeof runSpringerProbe;
+    runSpringerDiscoveryCheck?: typeof runSpringerDiscoveryCheck;
   };
 
   constructor() {
@@ -53,6 +55,7 @@ class Addon {
     };
     if (this.data.env === "development") {
       this.api.runSpringerProbe = runSpringerProbe;
+      this.api.runSpringerDiscoveryCheck = runSpringerDiscoveryCheck;
     }
   }
 }
