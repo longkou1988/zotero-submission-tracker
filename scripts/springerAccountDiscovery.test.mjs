@@ -6,6 +6,7 @@ import {
   parseSpringerAccountDocument,
   resolveSpringerSubmissionIdentity,
   SpringerAccountDiscovery,
+  toSpringerDiscoveryCheckResult,
 } from "../src/modules/statusSync/springerAccountDiscovery.ts";
 
 function readAccountFixture() {
@@ -262,4 +263,101 @@ test("account scanner never invents identity for a submission card with a missin
   assert.equal(result.unresolved[0].index, 1);
   assert.equal(result.unresolved[0].unresolvedReason, "missing_title");
   assert.equal(result.unresolved[0].entryUrl.includes("example-id"), true);
+});
+
+test("development discovery check redacts all private submission metadata", () => {
+  const result = toSpringerDiscoveryCheckResult({
+    resolved: [
+      {
+        index: 1,
+        sourceSystem: "snapp",
+        title: "Private Manuscript Title",
+        journal: "Private Journal",
+        rawStatus: "Action needed",
+        lastUpdatedText: "Last updated yesterday",
+        entryUrl:
+          "https://submission.springernature.com/submission-details/private-id?token=secret",
+        providerSubmissionId: "private-id",
+        statusUrl:
+          "https://submission.springernature.com/submission-details/private-id",
+      },
+    ],
+    unresolved: [
+      {
+        index: 2,
+        sourceSystem: "editorial_manager",
+        title: "Second Private Title",
+        journal: "Second Private Journal",
+        rawStatus: "Under review",
+        lastUpdatedText: "Last updated today",
+        entryUrl:
+          "https://www2.cloud.editorialmanager.com/cups/default2.aspx",
+        unresolvedReason: "requires_runtime_resolution",
+      },
+    ],
+  });
+
+  assert.deepEqual(result, {
+    cardCount: 2,
+    resolvedCount: 1,
+    unresolvedCount: 1,
+    cards: [
+      {
+        index: 1,
+        sourceSystem: "snapp",
+        resolution: "resolved",
+        finalPage: "submission_details",
+        providerSubmissionIdRedacted: "[id]",
+        reason: null,
+      },
+      {
+        index: 2,
+        sourceSystem: "editorial_manager",
+        resolution: "unresolved",
+        finalPage: "not_followed",
+        providerSubmissionIdRedacted: null,
+        reason: "requires_runtime_resolution",
+      },
+    ],
+  });
+
+  const serialized = JSON.stringify(result);
+  for (const forbidden of [
+    "Private Manuscript Title",
+    "Private Journal",
+    "private-id",
+    "token",
+    "secret",
+    "Second Private Title",
+    "Second Private Journal",
+    "documentHTML",
+    "entryUrl",
+    "rawStatus",
+    "email",
+  ]) {
+    assert.equal(serialized.includes(forbidden), false, forbidden);
+  }
+});
+
+test("discovery check is development-only and production discovery code does not access browser secrets", () => {
+  const addonSource = readFileSync(new URL("../src/addon.ts", import.meta.url), "utf8");
+  const discoverySource = readFileSync(
+    new URL("../src/modules/statusSync/springerAccountDiscovery.ts", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(addonSource, /runSpringerDiscoveryCheck\?:/);
+  assert.match(
+    addonSource,
+    /if\s*\(this\.data\.env\s*===\s*["']development["']\)[\s\S]*runSpringerDiscoveryCheck/,
+  );
+
+  for (const forbidden of [
+    "document.cookie",
+    "localStorage",
+    "sessionStorage",
+    "Authorization",
+  ]) {
+    assert.equal(discoverySource.includes(forbidden), false, forbidden);
+  }
 });
