@@ -114,8 +114,8 @@ No selector, endpoint, author field, editor identity field, reviewer count, majo
 The public provider remains **Springer Nature**. Internally, discovery records also capture their source system:
 
 ```ts
-providerFamily: "springer_nature"
-sourceSystem: "snapp" | "editorial_manager" | "unknown"
+providerFamily: "springer_nature";
+sourceSystem: "snapp" | "editorial_manager" | "unknown";
 ```
 
 The detail parser is unified because both observed source systems converge on the same `submission.springernature.com/submission-details/<id>` surface.
@@ -572,8 +572,9 @@ Required test groups:
    - automatic discovery is at most once per 24 hours;
    - imported status sync remains on the existing 6-hour cadence.
 10. Runtime authenticated probe:
-   - verify Zotero's hosted browser can reuse the authenticated Springer session without exposing session material;
-   - verify observed account and details markers against the user's real runtime before release.
+
+- verify Zotero's hosted browser can reuse the authenticated Springer session without exposing session material;
+- verify observed account and details markers against the user's real runtime before release.
 
 ## 20. Success Criteria
 

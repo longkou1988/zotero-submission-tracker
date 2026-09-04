@@ -1,7 +1,4 @@
-export type SpringerSourceSystem =
-  | "snapp"
-  | "editorial_manager"
-  | "unknown";
+export type SpringerSourceSystem = "snapp" | "editorial_manager" | "unknown";
 
 export interface SpringerDiscoveryCandidate {
   index: number;

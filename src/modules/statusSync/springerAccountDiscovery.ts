@@ -76,10 +76,7 @@ export function resolveSpringerSubmissionIdentity(
   }
 }
 
-function readText(
-  card: AccountElementLike,
-  selector: string,
-): string | null {
+function readText(card: AccountElementLike, selector: string): string | null {
   return normalizeNullable(card.querySelector?.(selector)?.textContent);
 }
 

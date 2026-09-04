@@ -41,12 +41,14 @@
 ### Task 1: Discovery Domain Types and Observed Account-Page Parser
 
 **Files:**
+
 - Create: `src/modules/statusSync/discoveryTypes.ts`
 - Create: `scripts/fixtures/springer-nature/account-submitted-mixed-systems.json`
 - Create: `scripts/springerAccountDiscovery.test.mjs`
 - Create: `src/modules/statusSync/springerAccountDiscovery.ts`
 
 **Interfaces:**
+
 - Produces:
   - `type SpringerSourceSystem = "snapp" | "editorial_manager" | "unknown"`
   - `interface SpringerDiscoveryCandidate { index: number; sourceSystem: SpringerSourceSystem; title: string; journal: string | null; rawStatus: string | null; lastUpdatedText: string | null; entryUrl: string }`
@@ -71,7 +73,10 @@ assert.equal(candidates.length, 4);
 assert.equal(candidates[0].sourceSystem, "snapp");
 assert.equal(candidates[1].sourceSystem, "editorial_manager");
 assert.equal(candidates[0].title, "Synthetic Manuscript A");
-assert.equal(candidates[1].entryUrl, "https://www2.cloud.editorialmanager.com/cups/default2.aspx");
+assert.equal(
+  candidates[1].entryUrl,
+  "https://www2.cloud.editorialmanager.com/cups/default2.aspx",
+);
 ```
 
 - [ ] **Step 2: Run CI and verify RED**
@@ -95,10 +100,12 @@ Commit message: `feat: parse Springer account submission cards`
 ### Task 2: Durable Submission Identity Resolver
 
 **Files:**
+
 - Modify: `scripts/springerAccountDiscovery.test.mjs`
 - Modify: `src/modules/statusSync/springerAccountDiscovery.ts`
 
 **Interfaces:**
+
 - Produces:
   - `interface ResolvedSpringerIdentity { providerSubmissionId: string; statusUrl: string }`
   - `resolveSpringerSubmissionIdentity(finalUrl: string): ResolvedSpringerIdentity | null`
@@ -152,11 +159,13 @@ Commit message: `feat: resolve Springer discovery identities`
 ### Task 3: Discovery Staging Store and Lifecycle Invariants
 
 **Files:**
+
 - Create: `scripts/statusSyncDiscoveryPersistence.test.mjs`
 - Create: `src/modules/statusSync/discoveryStore.ts`
 - Modify: `src/modules/statusSync/discoveryTypes.ts`
 
 **Interfaces:**
+
 - Produces:
   - `type DiscoveryImportState = "pending" | "imported" | "ignored"`
   - `interface DiscoveredSubmissionRecord`
@@ -233,11 +242,13 @@ Commit message: `feat: persist Springer discovery staging`
 ### Task 4: Account Scanner Orchestration Without Guessing EM Identity
 
 **Files:**
+
 - Modify: `scripts/springerAccountDiscovery.test.mjs`
 - Modify: `src/modules/statusSync/springerAccountDiscovery.ts`
 - Modify: `src/modules/statusSync/discoveryTypes.ts`
 
 **Interfaces:**
+
 - Produces:
   - `interface SpringerDiscoverySession { requestSpringer(url: string): Promise<{ finalUrl: string; documentHTML: string }> }`
   - `interface SpringerAccountScanResult { resolved: ResolvedDiscoveryCandidate[]; unresolved: UnresolvedDiscoveryCandidate[] }`
@@ -281,12 +292,14 @@ Commit message: `feat: add conservative Springer account scanner`
 ### Task 5: Store Initialization and Safe Development Runtime Resolution Check
 
 **Files:**
+
 - Modify: `scripts/statusSyncPersistence.test.mjs` or add focused static assertion to `scripts/springerAccountDiscovery.test.mjs`
 - Modify: `src/hooks.ts`
 - Modify: `src/addon.ts`
 - Modify: `src/modules/statusSync/springerAccountDiscovery.ts`
 
 **Interfaces:**
+
 - Produces development-only API:
 
 ```ts
@@ -339,10 +352,12 @@ Commit message: `feat: add Springer discovery runtime check`
 ### Task 6: Phase-1 Verification and Runtime Checkpoint
 
 **Files:**
+
 - No production behavior expansion beyond Tasks 1-5.
 - Update Draft PR #12 body with verified scope and the remaining runtime checkpoint.
 
 **Interfaces:**
+
 - Phase-1 completion requires:
   - all unit tests green;
   - lint green;
@@ -368,7 +383,7 @@ Document: parser/store complete, unresolved EM identity intentionally not persis
 After the build is installable in Zotero development mode, ask the user to run exactly:
 
 ```js
-await Zotero.SubmissionTracker.api.runSpringerDiscoveryCheck()
+await Zotero.SubmissionTracker.api.runSpringerDiscoveryCheck();
 ```
 
 The result must be sanitized. Success criterion for the next phase: each account card that can be durably imported resolves to the correct distinct `submission-details/<id>` identity; duplicate/ambiguous EM resolution blocks production auto-import until its click/navigation semantics are observed.
