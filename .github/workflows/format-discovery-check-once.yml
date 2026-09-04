@@ -1,0 +1,35 @@
+name: Format Discovery Check Once
+
+on:
+  push:
+    branches:
+      - feature/v0.7.0-springer-auto-sync
+    paths:
+      - .github/workflows/format-discovery-check-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  format-discovery-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/v0.7.0-springer-auto-sync
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm install
+      - run: npx prettier --write src/modules/statusSync/springerAccountDiscovery.ts
+      - name: Commit formatted discovery check
+        run: |
+          if git diff --quiet; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/modules/statusSync/springerAccountDiscovery.ts
+          git commit -m "style: format Springer discovery check"
+          git push origin HEAD:feature/v0.7.0-springer-auto-sync
