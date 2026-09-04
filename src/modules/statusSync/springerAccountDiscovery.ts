@@ -1,3 +1,4 @@
+import { sessionManager } from "./sessionManager";
 import type {
   ResolvedSpringerIdentity,
   SpringerAccountScanResult,
@@ -21,6 +22,22 @@ interface AccountDocumentLike {
 interface SpringerAccountDiscoveryDeps {
   session: SpringerDiscoverySession;
   parseDocument?: (documentHTML: string) => AccountDocumentLike;
+}
+
+export interface SpringerDiscoveryCheckCard {
+  index: number;
+  sourceSystem: SpringerSourceSystem;
+  resolution: "resolved" | "unresolved";
+  finalPage: "submission_details" | "other" | "not_followed";
+  providerSubmissionIdRedacted: "[id]" | null;
+  reason: string | null;
+}
+
+export interface SpringerDiscoveryCheckResult {
+  cardCount: number;
+  resolvedCount: number;
+  unresolvedCount: number;
+  cards: SpringerDiscoveryCheckCard[];
 }
 
 const ACCOUNT_URL = "https://link.springernature.com/home/?tab=submitted";
@@ -72,6 +89,40 @@ export class SpringerAccountDiscovery {
 
     return { resolved, unresolved };
   }
+}
+
+export async function runSpringerDiscoveryCheck(): Promise<SpringerDiscoveryCheckResult> {
+  const scanner = new SpringerAccountDiscovery({ session: sessionManager });
+  return toSpringerDiscoveryCheckResult(await scanner.scanAccount());
+}
+
+export function toSpringerDiscoveryCheckResult(
+  scan: SpringerAccountScanResult,
+): SpringerDiscoveryCheckResult {
+  const resolved: SpringerDiscoveryCheckCard[] = scan.resolved.map((item) => ({
+    index: item.index,
+    sourceSystem: item.sourceSystem,
+    resolution: "resolved",
+    finalPage: "submission_details",
+    providerSubmissionIdRedacted: "[id]",
+    reason: null,
+  }));
+  const unresolved: SpringerDiscoveryCheckCard[] = scan.unresolved.map((item) => ({
+    index: item.index,
+    sourceSystem: item.sourceSystem,
+    resolution: "unresolved",
+    finalPage: "not_followed",
+    providerSubmissionIdRedacted: null,
+    reason: item.unresolvedReason,
+  }));
+  const cards = [...resolved, ...unresolved].sort((a, b) => a.index - b.index);
+
+  return {
+    cardCount: cards.length,
+    resolvedCount: resolved.length,
+    unresolvedCount: unresolved.length,
+    cards,
+  };
 }
 
 export function parseSpringerAccountDocument(
