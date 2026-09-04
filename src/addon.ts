@@ -7,7 +7,7 @@ import { openDashboard, closeDashboard } from "./modules/dashboard";
 import { openCreateDialog } from "./modules/dialog";
 import { checkFollowUps } from "./modules/notify";
 import { runSpringerProbe } from "./modules/statusSync/springerProbe";
-import { runSpringerDiscoveryCheck } from "./modules/statusSync/springerAccountDiscovery";
+import { runSpringerDiscoveryCheck } from "./modules/statusSync/springerDiscoveryCheck";
 
 class Addon {
   public data: {
