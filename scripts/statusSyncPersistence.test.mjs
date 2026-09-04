@@ -55,13 +55,22 @@ test("sync history stores only provider observation metadata", () => {
   }
 });
 
-test("startup initializes sync persistence after the canonical database", () => {
+test("startup initializes sync and discovery persistence after the canonical database", () => {
   assert.match(
     hooks,
     /import\s*\{\s*syncStore\s*\}\s*from\s*["']\.\/modules\/statusSync\/syncStore["']/,
   );
+  assert.match(
+    hooks,
+    /import\s*\{\s*discoveryStore\s*\}\s*from\s*["']\.\/modules\/statusSync\/discoveryStore["']/,
+  );
   const canonicalInit = hooks.indexOf("await db.initialize();");
   const syncInit = hooks.indexOf("await syncStore.initialize();");
+  const discoveryInit = hooks.indexOf("await discoveryStore.initialize();");
   assert.ok(canonicalInit >= 0, "canonical database initialization must exist");
   assert.ok(syncInit > canonicalInit, "sync store must initialize after canonical DB");
+  assert.ok(
+    discoveryInit > syncInit,
+    "discovery store must initialize after the canonical and sync stores",
+  );
 });
