@@ -275,7 +275,11 @@ test("discovery persistence schema is additive and identity-unique", () => {
     "utf8",
   );
 
-  assert.match(source, /CREATE TABLE IF NOT EXISTS\s+submissiontrackerDiscoveredSubmissions/);
+  assert.match(
+    source,
+    /const TABLE_DISCOVERED = ["']submissiontrackerDiscoveredSubmissions["']/,
+  );
+  assert.match(source, /CREATE TABLE IF NOT EXISTS\s+\$\{TABLE_DISCOVERED\}/);
   assert.match(source, /UNIQUE\s*\(providerFamily, providerSubmissionId\)/);
   for (const field of [
     "providerFamily",
