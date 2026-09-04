@@ -5,6 +5,7 @@ import { URL } from "node:url";
 import {
   parseSpringerAccountDocument,
   resolveSpringerSubmissionIdentity,
+  SpringerAccountDiscovery,
 } from "../src/modules/statusSync/springerAccountDiscovery.ts";
 
 function readAccountFixture() {
@@ -165,4 +166,100 @@ test("durable identity accepts only final Springer submission-details URLs", () 
     ),
     null,
   );
+});
+
+test("account scanner resolves direct SNAPP identity and keeps Editorial Manager cards unresolved", async () => {
+  const fixture = readAccountFixture();
+  const requested = [];
+  const scanner = new SpringerAccountDiscovery({
+    session: {
+      async requestSpringer(url) {
+        requested.push(url);
+        return { finalUrl: url, documentHTML: "<account/>" };
+      },
+    },
+    parseDocument(documentHTML) {
+      assert.equal(documentHTML, "<account/>");
+      return fakeAccountDocument(fixture);
+    },
+  });
+
+  const result = await scanner.scanAccount();
+
+  assert.deepEqual(requested, [
+    "https://link.springernature.com/home/?tab=submitted",
+  ]);
+  assert.equal(result.resolved.length, 1);
+  assert.equal(result.unresolved.length, 3);
+  assert.deepEqual(
+    result.resolved.map((item) => ({
+      index: item.index,
+      sourceSystem: item.sourceSystem,
+      providerSubmissionId: item.providerSubmissionId,
+    })),
+    [
+      {
+        index: 1,
+        sourceSystem: "snapp",
+        providerSubmissionId: "[id]",
+      },
+    ],
+  );
+  assert.deepEqual(
+    result.unresolved.map((item) => ({
+      index: item.index,
+      sourceSystem: item.sourceSystem,
+      reason: item.unresolvedReason,
+    })),
+    [
+      {
+        index: 2,
+        sourceSystem: "editorial_manager",
+        reason: "requires_runtime_resolution",
+      },
+      {
+        index: 3,
+        sourceSystem: "editorial_manager",
+        reason: "requires_runtime_resolution",
+      },
+      {
+        index: 4,
+        sourceSystem: "editorial_manager",
+        reason: "requires_runtime_resolution",
+      },
+    ],
+  );
+});
+
+test("account scanner never invents identity for a submission card with a missing title", async () => {
+  const fixture = {
+    cards: [
+      {
+        title: "   ",
+        subtitle: "Synthetic Journal",
+        status: "Submitted",
+        lastUpdated: "Last updated 1 Sep 2026",
+        linkMarker: "submission-card-link--snapp",
+        href: "https://submission.springernature.com/submission-details/example-id",
+      },
+    ],
+  };
+  const scanner = new SpringerAccountDiscovery({
+    session: {
+      async requestSpringer(url) {
+        return { finalUrl: url, documentHTML: "<account/>" };
+      },
+    },
+    parseDocument() {
+      return fakeAccountDocument(fixture);
+    },
+  });
+
+  const result = await scanner.scanAccount();
+
+  assert.equal(result.resolved.length, 0);
+  assert.equal(result.unresolved.length, 1);
+  assert.equal(result.unresolved[0].index, 1);
+  assert.equal(result.unresolved[0].unresolvedReason, "missing_title");
+  assert.equal(result.unresolved[0].entryUrl.includes("example-id"), true);
 });
