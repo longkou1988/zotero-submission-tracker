@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
+import { URL } from "node:url";
 import { SessionManager } from "../src/modules/statusSync/sessionManager.ts";
 
 function makeBrowser(optionsSeen) {
@@ -84,4 +86,17 @@ test("Springer cookie context is stable for repeated login and scan calls", asyn
   manager.openSpringerLogin("https://link.springernature.com/home/?tab=submitted");
 
   assert.deepEqual(usedIds, [70, 70, 70]);
+});
+
+test("Springer login launcher is exposed only in development builds", () => {
+  const addonSource = readFileSync(
+    new URL("../src/addon.ts", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(addonSource, /openSpringerLogin\?:/);
+  assert.match(
+    addonSource,
+    /if\s*\(this\.data\.env\s*===\s*["']development["']\)[\s\S]*openSpringerLogin/,
+  );
 });
