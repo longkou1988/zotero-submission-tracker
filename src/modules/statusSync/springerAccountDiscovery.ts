@@ -117,7 +117,8 @@ export function buildSpringerAccountDiagnostics(response: {
 
   const html = response.documentHTML;
   const countMarker = (marker: string) =>
-    html.split(`data-test=\"${marker}\"`).length - 1 +
+    html.split(`data-test=\"${marker}\"`).length -
+    1 +
     (html.split(`data-test='${marker}'`).length - 1);
 
   return {
