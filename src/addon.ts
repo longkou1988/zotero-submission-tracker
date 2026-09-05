@@ -8,6 +8,7 @@ import { openCreateDialog } from "./modules/dialog";
 import { checkFollowUps } from "./modules/notify";
 import { runSpringerProbe } from "./modules/statusSync/springerProbe";
 import {
+  checkSpringerLoginViewer,
   openSpringerLogin,
   runSpringerDiscoveryCheck,
 } from "./modules/statusSync/springerDiscoveryCheck";
@@ -37,6 +38,7 @@ class Addon {
     runSpringerProbe?: typeof runSpringerProbe;
     runSpringerDiscoveryCheck?: typeof runSpringerDiscoveryCheck;
     openSpringerLogin?: typeof openSpringerLogin;
+    checkSpringerLoginViewer?: typeof checkSpringerLoginViewer;
   };
 
   constructor() {
@@ -61,6 +63,7 @@ class Addon {
       this.api.runSpringerProbe = runSpringerProbe;
       this.api.runSpringerDiscoveryCheck = runSpringerDiscoveryCheck;
       this.api.openSpringerLogin = openSpringerLogin;
+      this.api.checkSpringerLoginViewer = checkSpringerLoginViewer;
     }
   }
 }
