@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import { URL } from "node:url";
 import {
+  buildSpringerAccountDiagnostics,
   parseSpringerAccountDocument,
   resolveSpringerSubmissionIdentity,
   SpringerAccountDiscovery,
@@ -334,6 +335,44 @@ test("development discovery check redacts all private submission metadata", () =
     "entryUrl",
     "rawStatus",
     "email",
+  ]) {
+    assert.equal(serialized.includes(forbidden), false, forbidden);
+  }
+});
+
+test("runtime diagnostics expose only safe location and structural signals", () => {
+  const html = `
+    <main data-test="research-tracker-container">
+      <div data-test="research-tracker-count-label">4 submissions</div>
+      <div data-test="submissions-list">
+        <article data-test="research-tracker-item">Private Manuscript Title</article>
+        <article data-test="research-tracker-item">Second Private Title</article>
+      </div>
+    </main>`;
+
+  const result = buildSpringerAccountDiagnostics({
+    finalUrl: "https://link.springernature.com/home/?tab=submitted&token=secret",
+    documentHTML: html,
+  });
+
+  assert.deepEqual(result, {
+    finalOrigin: "https://link.springernature.com",
+    finalPath: "/home/",
+    documentLength: html.length,
+    hasResearchTrackerContainer: true,
+    hasSubmissionsList: true,
+    hasCountLabel: true,
+    trackerItemMarkerCount: 2,
+  });
+
+  const serialized = JSON.stringify(result);
+  for (const forbidden of [
+    "Private Manuscript Title",
+    "Second Private Title",
+    "token",
+    "secret",
+    "documentHTML",
+    "tab=submitted",
   ]) {
     assert.equal(serialized.includes(forbidden), false, forbidden);
   }
