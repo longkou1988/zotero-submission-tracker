@@ -35,7 +35,10 @@ interface SessionManagerDeps {
 
 const defaultDeps: SessionManagerDeps = {
   createCookieContext() {
-    return Zotero.HTTP.newCookieContext();
+    const httpWithCookieContext = Zotero.HTTP as unknown as {
+      newCookieContext(): CookieContextLike;
+    };
+    return httpWithCookieContext.newCookieContext();
   },
   openInViewer(uri, options) {
     const zoteroWithViewer = Zotero as unknown as {
