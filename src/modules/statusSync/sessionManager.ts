@@ -26,10 +26,7 @@ interface CookieContextLike {
 
 interface SessionManagerDeps {
   createCookieContext(): CookieContextLike;
-  openInViewer(
-    uri: string,
-    options: { userContextId: number },
-  ): unknown;
+  openInViewer(uri: string, options: { userContextId: number }): unknown;
   createHiddenBrowser(options: HiddenBrowserOptions): HiddenBrowserLike;
 }
 
@@ -42,10 +39,7 @@ const defaultDeps: SessionManagerDeps = {
   },
   openInViewer(uri, options) {
     const zoteroWithViewer = Zotero as unknown as {
-      openInViewer(
-        uri: string,
-        options: { userContextId: number },
-      ): unknown;
+      openInViewer(uri: string, options: { userContextId: number }): unknown;
     };
     return zoteroWithViewer.openInViewer(uri, options);
   },
