@@ -1,0 +1,46 @@
+name: Build Springer Shared Login Dev XPI Once
+
+on:
+  push:
+    branches:
+      - feature/v0.7.0-springer-auto-sync
+    paths:
+      - .github/workflows/build-springer-shared-login-dev-once.yml
+
+permissions:
+  contents: read
+
+jobs:
+  build-dev-xpi:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/v0.7.0-springer-auto-sync
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm install
+      - name: Build in development mode
+        run: npx zotero-plugin build --dev
+      - name: Typecheck
+        run: npx tsc --noEmit
+      - name: Verify shared-login development APIs are bundled
+        run: |
+          test -f .scaffold/build/addon/content/scripts/submissiontracker.js
+          grep -q 'openSpringerLogin' .scaffold/build/addon/content/scripts/submissiontracker.js
+          grep -q 'runSpringerDiscoveryCheck' .scaffold/build/addon/content/scripts/submissiontracker.js
+          grep -q 'userContextId' .scaffold/build/addon/content/scripts/submissiontracker.js
+          grep -q 'newCookieContext' .scaffold/build/addon/content/scripts/submissiontracker.js
+          node -e "const fs=require('fs'); const m=JSON.parse(fs.readFileSync('.scaffold/build/addon/manifest.json','utf8')); if(m.version!=='0.6.1') process.exit(1);"
+      - name: Pack development XPI
+        run: |
+          cd .scaffold/build/addon
+          zip -qr ../submission-tracker-springer-shared-login-dev.xpi .
+      - name: Upload development XPI
+        uses: actions/upload-artifact@v4
+        with:
+          name: springer-shared-login-dev-xpi
+          path: .scaffold/build/submission-tracker-springer-shared-login-dev.xpi
+          if-no-files-found: error
