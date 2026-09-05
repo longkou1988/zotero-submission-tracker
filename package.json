@@ -1,10 +1,10 @@
 {
   "name": "zotero-submission-tracker",
   "type": "module",
-  "version": "0.6.2",
+  "version": "0.6.1",
   "description": "Track journal submission records for your manuscripts in Zotero. 在 Zotero 中跟踪论文投稿记录。",
   "config": {
-    "addonName": "Submission Tracker — Shared Login Test",
+    "addonName": "Submission Tracker",
     "addonID": "submission-tracker@research-tools",
     "addonRef": "submissiontracker",
     "addonInstance": "SubmissionTracker",
