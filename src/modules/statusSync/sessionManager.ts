@@ -11,21 +11,72 @@ interface HiddenBrowserLike {
   destroy(): void;
 }
 
-interface HiddenBrowserConstructor {
-  new (options: { allowJavaScript: boolean }): HiddenBrowserLike;
+interface HiddenBrowserOptions {
+  allowJavaScript: boolean;
+  userContextId: number;
 }
 
+interface HiddenBrowserConstructor {
+  new (options: HiddenBrowserOptions): HiddenBrowserLike;
+}
+
+interface CookieContextLike {
+  id: number;
+}
+
+interface SessionManagerDeps {
+  createCookieContext(): CookieContextLike;
+  openInViewer(
+    uri: string,
+    options: { userContextId: number },
+  ): unknown;
+  createHiddenBrowser(options: HiddenBrowserOptions): HiddenBrowserLike;
+}
+
+const defaultDeps: SessionManagerDeps = {
+  createCookieContext() {
+    return Zotero.HTTP.newCookieContext();
+  },
+  openInViewer(uri, options) {
+    const zoteroWithViewer = Zotero as unknown as {
+      openInViewer(
+        uri: string,
+        options: { userContextId: number },
+      ): unknown;
+    };
+    return zoteroWithViewer.openInViewer(uri, options);
+  },
+  createHiddenBrowser(options) {
+    const HiddenBrowser = getHiddenBrowserConstructor();
+    return new HiddenBrowser(options);
+  },
+};
+
 /**
- * Loads Springer inside Zotero's own hidden remote browser. No container
- * override is passed, so the browser stays in Zotero's default web context
- * and can reuse the session created by the user in the visible status tab.
- * The returned HTML is transient transport data and must never be persisted
- * or logged by callers.
+ * Owns the isolated Springer browser session used by both interactive login
+ * and background discovery/status requests. The cookie context object stays
+ * in memory for the lifetime of this manager; callers never read or persist
+ * cookies, tokens, or credentials.
  */
 export class SessionManager {
+  private readonly deps: SessionManagerDeps;
+  private cookieContext: CookieContextLike | null = null;
+
+  constructor(deps: Partial<SessionManagerDeps> = {}) {
+    this.deps = { ...defaultDeps, ...deps };
+  }
+
+  openSpringerLogin(url: string): unknown {
+    return this.deps.openInViewer(url, {
+      userContextId: this.getUserContextId(),
+    });
+  }
+
   async requestSpringer(url: string): Promise<SpringerSessionResponse> {
-    const HiddenBrowser = getHiddenBrowserConstructor();
-    const browser = new HiddenBrowser({ allowJavaScript: true });
+    const browser = this.deps.createHiddenBrowser({
+      allowJavaScript: true,
+      userContextId: this.getUserContextId(),
+    });
     try {
       const loaded = await browser.load(url);
       if (!loaded) {
@@ -44,6 +95,13 @@ export class SessionManager {
     } finally {
       browser.destroy();
     }
+  }
+
+  private getUserContextId(): number {
+    if (!this.cookieContext) {
+      this.cookieContext = this.deps.createCookieContext();
+    }
+    return this.cookieContext.id;
   }
 }
 
