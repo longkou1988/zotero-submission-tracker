@@ -39,7 +39,18 @@ export interface SpringerDiscoveryCheckResult {
   cards: SpringerDiscoveryCheckCard[];
 }
 
-const ACCOUNT_URL = "https://link.springernature.com/home/?tab=submitted";
+export interface SpringerAccountDiagnostics {
+  finalOrigin: string;
+  finalPath: string;
+  documentLength: number;
+  hasResearchTrackerContainer: boolean;
+  hasSubmissionsList: boolean;
+  hasCountLabel: boolean;
+  trackerItemMarkerCount: number;
+}
+
+export const SPRINGER_ACCOUNT_URL =
+  "https://link.springernature.com/home/?tab=submitted";
 const ITEM_SELECTOR = '[data-test="research-tracker-item"]';
 const TITLE_SELECTOR = '[data-test="research-content-card-title"]';
 const SUBTITLE_SELECTOR = '[data-test="research-content-card-subtitle"]';
@@ -58,7 +69,7 @@ export class SpringerAccountDiscovery {
   }
 
   async scanAccount(): Promise<SpringerAccountScanResult> {
-    const response = await this.session.requestSpringer(ACCOUNT_URL);
+    const response = await this.session.requestSpringer(SPRINGER_ACCOUNT_URL);
     const documentLike = this.parseDocument(response.documentHTML);
     const candidates = parseSpringerAccountDocument(documentLike);
     const resolved: SpringerAccountScanResult["resolved"] = [];
@@ -88,6 +99,36 @@ export class SpringerAccountDiscovery {
 
     return { resolved, unresolved };
   }
+}
+
+export function buildSpringerAccountDiagnostics(response: {
+  finalUrl: string;
+  documentHTML: string;
+}): SpringerAccountDiagnostics {
+  let finalOrigin = "invalid";
+  let finalPath = "invalid";
+  try {
+    const url = new URL(response.finalUrl);
+    finalOrigin = url.origin;
+    finalPath = url.pathname;
+  } catch {
+    // Keep only non-sensitive sentinel values for malformed locations.
+  }
+
+  const html = response.documentHTML;
+  const countMarker = (marker: string) =>
+    html.split(`data-test=\"${marker}\"`).length - 1 +
+    (html.split(`data-test='${marker}'`).length - 1);
+
+  return {
+    finalOrigin,
+    finalPath,
+    documentLength: html.length,
+    hasResearchTrackerContainer: countMarker("research-tracker-container") > 0,
+    hasSubmissionsList: countMarker("submissions-list") > 0,
+    hasCountLabel: countMarker("research-tracker-count-label") > 0,
+    trackerItemMarkerCount: countMarker("research-tracker-item"),
+  };
 }
 
 export function toSpringerDiscoveryCheckResult(
