@@ -24,9 +24,32 @@ interface CookieContextLike {
   id: number;
 }
 
+interface ViewerActorLike {
+  sendQuery(name: string): Promise<unknown>;
+}
+
+interface ViewerBrowserLike {
+  currentURI?: { spec?: string } | null;
+  browsingContext?: {
+    currentWindowGlobal?: {
+      getActor(name: string): ViewerActorLike;
+    } | null;
+  } | null;
+}
+
+interface ViewerWindowLike {
+  closed?: boolean;
+  document?: {
+    querySelector(selector: string): ViewerBrowserLike | null;
+  } | null;
+}
+
 interface SessionManagerDeps {
   createCookieContext(): CookieContextLike;
-  openInViewer(uri: string, options: { userContextId: number }): unknown;
+  openInViewer(
+    uri: string,
+    options: { userContextId: number },
+  ): ViewerWindowLike;
   createHiddenBrowser(options: HiddenBrowserOptions): HiddenBrowserLike;
 }
 
@@ -39,7 +62,10 @@ const defaultDeps: SessionManagerDeps = {
   },
   openInViewer(uri, options) {
     const zoteroWithViewer = Zotero as unknown as {
-      openInViewer(uri: string, options: { userContextId: number }): unknown;
+      openInViewer(
+        uri: string,
+        options: { userContextId: number },
+      ): ViewerWindowLike;
     };
     return zoteroWithViewer.openInViewer(uri, options);
   },
@@ -58,15 +84,45 @@ const defaultDeps: SessionManagerDeps = {
 export class SessionManager {
   private readonly deps: SessionManagerDeps;
   private cookieContext: CookieContextLike | null = null;
+  private loginViewer: ViewerWindowLike | null = null;
 
   constructor(deps: Partial<SessionManagerDeps> = {}) {
     this.deps = { ...defaultDeps, ...deps };
   }
 
-  openSpringerLogin(url: string): unknown {
-    return this.deps.openInViewer(url, {
+  openSpringerLogin(url: string): ViewerWindowLike {
+    const viewer = this.deps.openInViewer(url, {
       userContextId: this.getUserContextId(),
     });
+    this.loginViewer = viewer;
+    return viewer;
+  }
+
+  async inspectSpringerLoginViewer(): Promise<SpringerSessionResponse> {
+    const viewer = this.loginViewer;
+    if (!viewer || viewer.closed) {
+      throw new Error("Springer login viewer is not open");
+    }
+
+    const browser = viewer.document?.querySelector("browser");
+    if (!browser) {
+      throw new Error("Springer login viewer browser is unavailable");
+    }
+
+    const actor = browser.browsingContext?.currentWindowGlobal?.getActor("PageData");
+    if (!actor) {
+      throw new Error("Springer login viewer page data is unavailable");
+    }
+
+    const documentHTML = String((await actor.sendQuery("documentHTML")) || "");
+    if (!documentHTML) {
+      throw new Error("Springer login viewer returned no document content");
+    }
+
+    return {
+      finalUrl: browser.currentURI?.spec || "about:blank",
+      documentHTML,
+    };
   }
 
   async requestSpringer(url: string): Promise<SpringerSessionResponse> {
