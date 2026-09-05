@@ -8,8 +8,13 @@ import {
 } from "./springerAccountDiscovery";
 import { sessionManager } from "./sessionManager";
 
-export interface SpringerDiscoveryRuntimeCheckResult extends SpringerDiscoveryCheckResult {
+export interface SpringerDiscoveryRuntimeCheckResult
+  extends SpringerDiscoveryCheckResult {
   diagnostics: SpringerAccountDiagnostics;
+}
+
+export function openSpringerLogin(): unknown {
+  return sessionManager.openSpringerLogin(SPRINGER_ACCOUNT_URL);
 }
 
 export async function runSpringerDiscoveryCheck(): Promise<SpringerDiscoveryRuntimeCheckResult> {
