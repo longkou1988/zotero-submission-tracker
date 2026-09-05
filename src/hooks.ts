@@ -18,6 +18,8 @@ import {
   startReminderLoop,
 } from "./modules/notify";
 import { closeAllDialogs } from "./modules/dialog";
+import { syncStore } from "./modules/statusSync/syncStore";
+import { discoveryStore } from "./modules/statusSync/discoveryStore";
 
 async function onStartup() {
   await Promise.all([
@@ -29,6 +31,8 @@ async function onStartup() {
   initLocale();
 
   await db.initialize();
+  await syncStore.initialize();
+  await discoveryStore.initialize();
   db.onChange(() => {
     if ((Zotero as any)[config.addonInstance] === addon) {
       void refreshOpenSections();

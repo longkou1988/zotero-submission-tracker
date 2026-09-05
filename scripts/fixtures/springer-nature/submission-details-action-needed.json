@@ -1,0 +1,16 @@
+{
+  "page": "submission.springernature.com/submission-details/[id]",
+  "dom": {
+    "currentStatusSelector": "[data-test=\"current-status\"]",
+    "headlineSelector": "[data-test=\"current-status-headline\"]",
+    "headline": "Action needed",
+    "textSelector": "[data-test=\"current-status-text\"]",
+    "text": [
+      "Your reviewers have provided feedback on your submission. There are revisions you need to make before your submission can progress. We’ve also emailed [email] with more details.",
+      "We recommend submitting your revisions by 15 Sep 2026."
+    ]
+  },
+  "requestPaths": [
+    "https://submission.springernature.com/images/icons/[id]"
+  ]
+}

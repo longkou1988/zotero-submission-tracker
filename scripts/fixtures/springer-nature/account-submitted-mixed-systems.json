@@ -1,0 +1,38 @@
+{
+  "page": "https://link.springernature.com/home/?tab=submitted",
+  "countLabel": "4 submissions  4 份提交内容",
+  "cards": [
+    {
+      "title": "Synthetic Manuscript A",
+      "subtitle": "Synthetic Journal A",
+      "status": "Action needed",
+      "lastUpdated": "Last updated 1 Sep 2026",
+      "linkMarker": "submission-card-link--snapp",
+      "href": "https://submission.springernature.com/submission-details/[id]"
+    },
+    {
+      "title": "Synthetic Manuscript B",
+      "subtitle": "Synthetic Journal B",
+      "status": "Under review",
+      "lastUpdated": "Last updated 20 Aug 2026",
+      "linkMarker": "submission-card-link--em",
+      "href": "https://www2.cloud.editorialmanager.com/cups/default2.aspx"
+    },
+    {
+      "title": "Synthetic Manuscript C",
+      "subtitle": "Synthetic Journal C",
+      "status": "Submitted",
+      "lastUpdated": "Last updated 10 Aug 2026",
+      "linkMarker": "submission-card-link--em",
+      "href": "https://www2.cloud.editorialmanager.com/cups/default2.aspx"
+    },
+    {
+      "title": "Synthetic Manuscript D",
+      "subtitle": "Synthetic Journal D",
+      "status": "Decision in process",
+      "lastUpdated": "Last updated 5 Aug 2026",
+      "linkMarker": "submission-card-link--em",
+      "href": "https://www2.cloud.editorialmanager.com/cups/default2.aspx"
+    }
+  ]
+}
