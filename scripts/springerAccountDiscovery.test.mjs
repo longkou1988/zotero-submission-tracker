@@ -4,6 +4,7 @@ import test from "node:test";
 import { URL } from "node:url";
 import {
   buildSpringerAccountDiagnostics,
+  classifySpringerAccountAccess,
   parseSpringerAccountDocument,
   resolveSpringerSubmissionIdentity,
   SpringerAccountDiscovery,
@@ -376,6 +377,23 @@ test("runtime diagnostics expose only safe location and structural signals", () 
   ]) {
     assert.equal(serialized.includes(forbidden), false, forbidden);
   }
+});
+
+test("Springer identity gateway is classified as auth required instead of an empty account", () => {
+  assert.equal(
+    classifySpringerAccountAccess({
+      finalUrl: "https://idp-personal-authenticator.springernature.com/gateway?token=secret",
+      documentHTML: "<html><body>Sign in</body></html>",
+    }),
+    "auth_required",
+  );
+  assert.equal(
+    classifySpringerAccountAccess({
+      finalUrl: "https://link.springernature.com/home/?tab=submitted",
+      documentHTML: '<main data-test="research-tracker-container"></main>',
+    }),
+    "authenticated",
+  );
 });
 
 test("discovery check is development-only and production discovery code does not access browser secrets", () => {
