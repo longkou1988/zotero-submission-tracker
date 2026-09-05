@@ -49,7 +49,7 @@ export class SessionManager {
 
 function getHiddenBrowserConstructor(): HiddenBrowserConstructor {
   const module = ChromeUtils.importESModule(
-    "chrome://zotero/content/zotero/HiddenBrowser.mjs",
+    "chrome://zotero/content/HiddenBrowser.mjs",
   ) as { HiddenBrowser: HiddenBrowserConstructor };
   return module.HiddenBrowser;
 }
