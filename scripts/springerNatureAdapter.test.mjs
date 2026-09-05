@@ -214,7 +214,7 @@ test("session manager reuses Zotero default web session without reading cookies"
     "utf8",
   );
 
-  assert.match(source, /chrome:\/\/zotero\/content\/zotero\/HiddenBrowser\.mjs/);
+  assert.match(source, /chrome:\/\/zotero\/content\/HiddenBrowser\.mjs/);
   assert.match(source, /new\s+HiddenBrowser\s*\(\s*\{\s*allowJavaScript:\s*true\s*\}\s*\)/s);
   assert.match(source, /getPageData\s*\(\s*\[\s*["']documentHTML["']\s*\]\s*\)/);
   assert.match(source, /waitForDocument/);
