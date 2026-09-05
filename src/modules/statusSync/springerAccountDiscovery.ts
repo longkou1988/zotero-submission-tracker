@@ -39,6 +39,11 @@ export interface SpringerDiscoveryCheckResult {
   cards: SpringerDiscoveryCheckCard[];
 }
 
+export type SpringerAccountAccess =
+  | "authenticated"
+  | "auth_required"
+  | "unknown";
+
 export interface SpringerAccountDiagnostics {
   finalOrigin: string;
   finalPath: string;
@@ -58,6 +63,8 @@ const STATUS_SELECTOR = '[data-test="research-content-card-status-info"]';
 const UPDATED_SELECTOR = '[data-test="research-content-card-last-updated"]';
 const SNAPP_LINK_SELECTOR = '[data-test="submission-card-link--snapp"]';
 const EM_LINK_SELECTOR = '[data-test="submission-card-link--em"]';
+const SPRINGER_AUTH_ORIGIN =
+  "https://idp-personal-authenticator.springernature.com";
 
 export class SpringerAccountDiscovery {
   private readonly session: SpringerDiscoverySession;
@@ -99,6 +106,30 @@ export class SpringerAccountDiscovery {
 
     return { resolved, unresolved };
   }
+}
+
+export function classifySpringerAccountAccess(response: {
+  finalUrl: string;
+  documentHTML: string;
+}): SpringerAccountAccess {
+  try {
+    const url = new URL(response.finalUrl);
+    if (
+      url.origin === SPRINGER_AUTH_ORIGIN &&
+      url.pathname.startsWith("/gateway")
+    ) {
+      return "auth_required";
+    }
+    if (
+      url.origin === "https://link.springernature.com" &&
+      url.pathname === "/home/"
+    ) {
+      return "authenticated";
+    }
+  } catch {
+    return "unknown";
+  }
+  return "unknown";
 }
 
 export function buildSpringerAccountDiagnostics(response: {
