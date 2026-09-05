@@ -115,9 +115,7 @@ export class SessionManager {
       throw new Error("Springer login viewer page data is unavailable");
     }
 
-    const documentHTML = String(
-      (await actor.sendQuery("documentHTML")) || "",
-    );
+    const documentHTML = String((await actor.sendQuery("documentHTML")) || "");
     if (!documentHTML) {
       throw new Error("Springer login viewer returned no document content");
     }
