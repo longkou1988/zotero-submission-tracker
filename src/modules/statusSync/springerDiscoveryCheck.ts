@@ -8,8 +8,7 @@ import {
 } from "./springerAccountDiscovery";
 import { sessionManager } from "./sessionManager";
 
-export interface SpringerDiscoveryRuntimeCheckResult
-  extends SpringerDiscoveryCheckResult {
+export interface SpringerDiscoveryRuntimeCheckResult extends SpringerDiscoveryCheckResult {
   diagnostics: SpringerAccountDiagnostics;
 }
 
