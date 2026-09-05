@@ -50,7 +50,7 @@ class Addon {
       ztoolkit: createZToolkit(),
       dialogs: [],
     };
-    (this.data as any).buildTag = `032c-${Date.now().toString(36)}`;
+    (this.data as any).buildTag = `viewer-diagnostic-r5-${Date.now().toString(36)}`;
     this.hooks = hooks;
     this.api = {
       db,
