@@ -16,6 +16,11 @@ export function openSpringerLogin(): unknown {
   return sessionManager.openSpringerLogin(SPRINGER_ACCOUNT_URL);
 }
 
+export async function checkSpringerLoginViewer(): Promise<SpringerAccountDiagnostics> {
+  const response = await sessionManager.inspectSpringerLoginViewer();
+  return buildSpringerAccountDiagnostics(response);
+}
+
 export async function runSpringerDiscoveryCheck(): Promise<SpringerDiscoveryRuntimeCheckResult> {
   const response = await sessionManager.requestSpringer(SPRINGER_ACCOUNT_URL);
   const scanner = new SpringerAccountDiscovery({
